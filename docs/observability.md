@@ -23,7 +23,7 @@ const conn = new Connection({
 For advanced use, inject/extract trace context manually:
 
 ```typescript
-import { injectToHeaders, extractToContext } from "@gomessaging/amqp";
+import { injectToHeaders, extractToContext } from "@sparetimecoders/messaging-amqp";
 
 // Inject active span into headers for propagation
 const headers = injectToHeaders(context.active(), {});

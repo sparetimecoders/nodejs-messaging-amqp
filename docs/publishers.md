@@ -66,7 +66,7 @@ By default, `publish()` waits for the broker to confirm the message was persiste
 For higher throughput:
 
 ```typescript
-import { Publisher, WithoutPublisherConfirms } from "@gomessaging/amqp";
+import { Publisher, WithoutPublisherConfirms } from "@sparetimecoders/messaging-amqp";
 
 const pub = new Publisher(WithoutPublisherConfirms());
 conn.addEventPublisher(pub);

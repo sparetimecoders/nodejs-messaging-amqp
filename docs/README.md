@@ -1,4 +1,4 @@
-# @gomessaging/amqp Documentation
+# @sparetimecoders/messaging-amqp Documentation
 
 Detailed guides for the Node.js AMQP/RabbitMQ transport. For a quick overview, see the [main README](../README.md).
 
@@ -14,4 +14,4 @@ Detailed guides for the Node.js AMQP/RabbitMQ transport. For a quick overview, s
 
 - [gomessaging specification](https://github.com/sparetimecoders/messaging) — shared spec, TCK, validation, visualization
 - [gomessaging/amqp (Go)](https://github.com/sparetimecoders/go-messaging-amqp) — Go AMQP transport
-- [@gomessaging/nats](https://github.com/sparetimecoders/nodejs-messaging-nats) — Node.js NATS transport
+- [@sparetimecoders/messaging-nats](https://github.com/sparetimecoders/nodejs-messaging-nats) — Node.js NATS transport

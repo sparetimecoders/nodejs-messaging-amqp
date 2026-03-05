@@ -3,7 +3,7 @@
 ## Creating a Connection
 
 ```typescript
-import { Connection } from "@gomessaging/amqp";
+import { Connection } from "@sparetimecoders/messaging-amqp";
 
 const conn = new Connection({
   url: "amqp://guest:guest@localhost:5672",
