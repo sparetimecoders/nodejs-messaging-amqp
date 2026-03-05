@@ -14,6 +14,8 @@
 
 AMQP transport implementation for the [gomessaging specification](https://github.com/sparetimecoders/messaging). Provides deterministic topology, CloudEvents 1.0 metadata, OpenTelemetry tracing, and conformance-tested messaging patterns over RabbitMQ.
 
+> **Deep dives**: See the [docs/](docs/) directory for detailed guides on [connection & configuration](docs/connection.md), [consumers](docs/consumers.md), [publishers](docs/publishers.md), [request-response](docs/request-response.md), and [observability](docs/observability.md).
+
 ## Installation
 
 ```sh
