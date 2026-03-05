@@ -7,7 +7,7 @@
 
 import * as fs from "node:fs";
 import * as readline from "node:readline";
-import { Connection, Publisher, type ConsumerOptions } from "@gomessaging/amqp";
+import { Connection, Publisher, type ConsumerOptions } from "@sparetimecoders/messaging-amqp";
 import type {
   ConsumableEvent,
   DeliveryInfo,

@@ -1,5 +1,5 @@
 {
-  "name": "@gomessaging/amqp",
+  "name": "@sparetimecoders/messaging-amqp",
   "version": "0.1.0",
   "type": "module",
   "exports": {

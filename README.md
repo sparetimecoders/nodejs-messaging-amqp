@@ -1,4 +1,4 @@
-# @gomessaging/amqp
+# @sparetimecoders/messaging-amqp
 
 <p align="center">
   <strong>AMQP/RabbitMQ transport for gomessaging (Node.js/TypeScript).</strong>
@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/sparetimecoders/nodejs-messaging-amqp/actions"><img alt="CI" src="https://github.com/sparetimecoders/nodejs-messaging-amqp/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://www.npmjs.com/package/@gomessaging/amqp"><img alt="npm" src="https://img.shields.io/npm/v/@gomessaging/amqp"></a>
+  <a href="https://www.npmjs.com/package/@sparetimecoders/messaging-amqp"><img alt="npm" src="https://img.shields.io/npm/v/@sparetimecoders/messaging-amqp"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
 </p>
 
@@ -17,13 +17,13 @@ AMQP transport implementation for the [gomessaging specification](https://github
 ## Installation
 
 ```sh
-npm install @gomessaging/amqp
+npm install @sparetimecoders/messaging-amqp
 ```
 
 ## Quick Start
 
 ```typescript
-import { Connection } from "@gomessaging/amqp";
+import { Connection } from "@sparetimecoders/messaging-amqp";
 
 const conn = new Connection({
   url: "amqp://localhost:5672",
@@ -47,7 +47,7 @@ await pub.publish("Order.Created", { orderId: "abc-123", amount: 42 });
 Publish domain events to the shared `events.topic.exchange`; any number of services subscribe by routing key. Consumers are durable by default (quorum queues with single-active-consumer). Set `ephemeral: true` for auto-deleting temporary subscriptions.
 
 ```typescript
-import { Connection } from "@gomessaging/amqp";
+import { Connection } from "@sparetimecoders/messaging-amqp";
 
 const conn = new Connection({
   url: "amqp://localhost:5672",
@@ -186,7 +186,7 @@ Passed as the last argument to `addEventConsumer`, `addCustomStreamConsumer`, `a
 By default, publishers wait for broker confirmation (ack/nack) on every publish. Disable this for high-throughput scenarios where occasional message loss is acceptable.
 
 ```typescript
-import { Publisher, WithoutPublisherConfirms } from "@gomessaging/amqp";
+import { Publisher, WithoutPublisherConfirms } from "@sparetimecoders/messaging-amqp";
 
 const pub = new Publisher(WithoutPublisherConfirms());
 conn.addEventPublisher(pub);
@@ -201,7 +201,7 @@ Trace context propagates through AMQP message headers using OpenTelemetry. Pass 
 The `injectToHeaders` and `extractToContext` functions are exported for custom integrations:
 
 ```typescript
-import { injectToHeaders, extractToContext } from "@gomessaging/amqp";
+import { injectToHeaders, extractToContext } from "@sparetimecoders/messaging-amqp";
 import { context } from "@opentelemetry/api";
 
 // Inject active span context into outgoing headers

@@ -2,14 +2,14 @@
 // Copyright (c) 2026 sparetimecoders
 
 /**
- * @gomessaging/amqp - AMQP transport for gomessaging
+ * @sparetimecoders/messaging-amqp - AMQP transport for gomessaging
  *
  * This module provides an AMQP transport implementation that follows
  * the gomessaging specification for naming conventions, topology,
  * and CloudEvents binary content mode.
  *
  * Usage:
- *   import { Connection, Publisher } from "@gomessaging/amqp";
+ *   import { Connection, Publisher } from "@sparetimecoders/messaging-amqp";
  *
  *   const conn = new Connection({ url: "amqp://localhost", serviceName: "my-service" });
  *   const pub = conn.addEventPublisher();
