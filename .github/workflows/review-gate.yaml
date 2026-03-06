@@ -10,6 +10,7 @@ permissions: {}
 
 jobs:
   review-gate:
+    name: Review Gate
     runs-on: ubuntu-latest
     steps:
       - name: Check if review is required
