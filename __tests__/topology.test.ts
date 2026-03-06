@@ -6,7 +6,7 @@ import type { Endpoint } from "@sparetimecoders/messaging";
 
 const fixturesPath = resolve(
   import.meta.dirname,
-  "../../../../specification/spec/testdata/topology.json",
+  "../testdata/topology.json",
 );
 const fixtures = JSON.parse(readFileSync(fixturesPath, "utf-8"));
 
@@ -20,6 +20,7 @@ interface Setup {
   exchange?: string;
   targetService?: string;
   ephemeral?: boolean;
+  destinationQueue?: string;
 }
 
 interface ExpectedEndpoint extends Endpoint {
@@ -58,6 +59,9 @@ function applySetup(conn: Connection, setup: Setup): void {
         setup.routingKey!,
         noopHandler,
       );
+      break;
+    case "queue-publish:publish":
+      conn.addQueuePublisher(setup.destinationQueue!);
       break;
     default:
       throw new Error(
