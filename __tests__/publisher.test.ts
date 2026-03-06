@@ -12,7 +12,7 @@ import {
   CEType,
   CESource,
   CEID,
-} from "@gomessaging/spec";
+} from "@sparetimecoders/messaging";
 
 // AMQP wire header keys
 const amqpSpecVersion = AMQPCEHeaderKey(CEAttrSpecVersion);

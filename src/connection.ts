@@ -13,7 +13,7 @@ import type {
   ErrorNotificationHandler,
   MetricsRecorder,
   RoutingKeyMapper,
-} from "@gomessaging/spec";
+} from "@sparetimecoders/messaging";
 import {
   DefaultEventExchangeName,
   topicExchangeName,
@@ -30,7 +30,7 @@ import {
   CEAttrTime,
   CEAttrID,
   CESpecVersionValue,
-} from "@gomessaging/spec";
+} from "@sparetimecoders/messaging";
 import { v4 as uuidv4 } from "uuid";
 import { Publisher } from "./publisher.js";
 import { QueueConsumer } from "./consumer.js";

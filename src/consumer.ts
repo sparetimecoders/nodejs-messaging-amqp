@@ -11,7 +11,7 @@ import type {
   RoutingKeyMapper,
   NotificationHandler,
   ErrorNotificationHandler,
-} from "@gomessaging/spec";
+} from "@sparetimecoders/messaging";
 import {
   ErrParseJSON,
   metadataFromHeaders,
@@ -22,7 +22,7 @@ import {
   matchRoutingKey,
   routingKeyOverlaps,
   mapRoutingKey,
-} from "@gomessaging/spec";
+} from "@sparetimecoders/messaging";
 import type { TextMapPropagator } from "@opentelemetry/api";
 import { extractToContext } from "./tracing.js";
 

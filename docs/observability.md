@@ -34,10 +34,10 @@ const ctx = extractToContext(msg.properties.headers);
 
 ## Metrics
 
-Implement the `MetricsRecorder` interface from `@gomessaging/spec` and pass it to the connection:
+Implement the `MetricsRecorder` interface from `@sparetimecoders/messaging` and pass it to the connection:
 
 ```typescript
-import { MetricsRecorder } from "@gomessaging/spec";
+import { MetricsRecorder } from "@sparetimecoders/messaging";
 
 const metrics: MetricsRecorder = {
   publishSucceed(exchange, routingKey, durationMs) { /* counter++ */ },

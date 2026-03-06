@@ -7,7 +7,7 @@ import {
   type TextMapPropagator,
 } from "@opentelemetry/api";
 import type * as amqplib from "amqplib";
-import type { MetricsRecorder, RoutingKeyMapper } from "@gomessaging/spec";
+import type { MetricsRecorder, RoutingKeyMapper } from "@sparetimecoders/messaging";
 import {
   CESpecVersionValue,
   CEAttrSpecVersion,
@@ -18,7 +18,7 @@ import {
   CEAttrID,
   AMQPCEHeaderKey,
   mapRoutingKey,
-} from "@gomessaging/spec";
+} from "@sparetimecoders/messaging";
 import { injectToHeaders } from "./tracing.js";
 
 /** Options for configuring a Publisher. */

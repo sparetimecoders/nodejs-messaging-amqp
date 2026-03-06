@@ -13,7 +13,7 @@ import type {
   DeliveryInfo,
   Metadata,
   Topology,
-} from "@gomessaging/spec";
+} from "@sparetimecoders/messaging";
 
 // --- Wire protocol types ---
 

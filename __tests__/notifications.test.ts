@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { QueueConsumer } from "../src/consumer.js";
-import type { Notification, ErrorNotification } from "@gomessaging/spec";
+import type { Notification, ErrorNotification } from "@sparetimecoders/messaging";
 import {
   CESpecVersion,
   CESpecVersionValue,
@@ -9,7 +9,7 @@ import {
   CEID,
   CETime,
   CEDataContentType,
-} from "@gomessaging/spec";
+} from "@sparetimecoders/messaging";
 
 type MessageCallback = (msg: import("amqplib").ConsumeMessage | null) => void;
 

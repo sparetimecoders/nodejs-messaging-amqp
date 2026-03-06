@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { QueueConsumer } from "../src/consumer.js";
 import { Publisher } from "../src/publisher.js";
-import type { MetricsRecorder } from "@gomessaging/spec";
+import type { MetricsRecorder } from "@sparetimecoders/messaging";
 import {
   CESpecVersion,
   CESpecVersionValue,
@@ -11,7 +11,7 @@ import {
   CETime,
   CEDataContentType,
   ErrParseJSON,
-} from "@gomessaging/spec";
+} from "@sparetimecoders/messaging";
 
 type MessageCallback = (msg: import("amqplib").ConsumeMessage | null) => void;
 

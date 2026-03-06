@@ -9,7 +9,7 @@ import {
   CETime,
   CEDataContentType,
   ErrParseJSON,
-} from "@gomessaging/spec";
+} from "@sparetimecoders/messaging";
 
 type MessageCallback = (msg: import("amqplib").ConsumeMessage | null) => void;
 

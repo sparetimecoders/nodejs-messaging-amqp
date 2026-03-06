@@ -216,7 +216,7 @@ const ctx = extractToContext(incomingHeaders, propagator);
 
 ### Metrics
 
-Implement the `MetricsRecorder` interface from `@gomessaging/spec` and pass it via the `metrics` option. The transport calls the following methods:
+Implement the `MetricsRecorder` interface from `@sparetimecoders/messaging` and pass it via the `metrics` option. The transport calls the following methods:
 
 - `publishSucceed(exchange, routingKey, durationMs)` -- successful publish
 - `publishFailed(exchange, routingKey, durationMs)` -- failed publish

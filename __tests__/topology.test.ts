@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { Connection } from "../src/connection.js";
-import type { Endpoint } from "@gomessaging/spec";
+import type { Endpoint } from "@sparetimecoders/messaging";
 
 const fixturesPath = resolve(
   import.meta.dirname,
