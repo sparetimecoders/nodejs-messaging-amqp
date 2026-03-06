@@ -6,6 +6,7 @@ import type { TextMapPropagator } from "@opentelemetry/api";
 import type {
   Topology,
   Endpoint,
+  ExchangeKind,
   EventHandler,
   RequestResponseEventHandler,
   ConsumableEvent,
