@@ -1,0 +1,33 @@
+name: Review Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted]
+
+permissions: {}
+
+jobs:
+  review-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if review is required
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "$PR_AUTHOR" != "renovate[bot]" ]; then
+            echo "Non-Renovate PR, no review required"
+            exit 0
+          fi
+
+          APPROVED=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/reviews" --jq '[.[] | select(.state == "APPROVED")] | length')
+          if [ "$APPROVED" -lt 1 ]; then
+            echo "::error::Renovate PRs require at least one approving review"
+            exit 1
+          fi
+
+          echo "Renovate PR approved, review gate passed"
