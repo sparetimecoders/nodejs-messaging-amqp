@@ -20,15 +20,15 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
-          if [ "$PR_AUTHOR" != "renovate[bot]" ]; then
-            echo "Non-Renovate PR, no review required"
+          if [ "$PR_AUTHOR" = "peter-svensson" ]; then
+            echo "PR by $PR_AUTHOR, no review required"
             exit 0
           fi
 
           APPROVED=$(gh api "repos/${REPO}/pulls/${PR_NUMBER}/reviews" --jq '[.[] | select(.state == "APPROVED")] | length')
           if [ "$APPROVED" -lt 1 ]; then
-            echo "::error::Renovate PRs require at least one approving review"
+            echo "::error::PRs by $PR_AUTHOR require at least one approving review"
             exit 1
           fi
 
-          echo "Renovate PR approved, review gate passed"
+          echo "PR by $PR_AUTHOR approved, review gate passed"
