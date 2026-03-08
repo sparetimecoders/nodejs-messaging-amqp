@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, mock, beforeEach, type Mock } from "bun:test";
 import { Publisher, WithoutPublisherConfirms } from "../src/publisher.js";
 import {
   CESpecVersionValue,
@@ -25,28 +25,26 @@ const amqpID = AMQPCEHeaderKey(CEAttrID);
 // Mock amqplib ConfirmChannel with callback-based publish
 function createMockConfirmChannel() {
   return {
-    publish: vi
-      .fn()
-      .mockImplementation(
-        (
-          _exchange: string,
-          _routingKey: string,
-          _content: Buffer,
-          _options: unknown,
-          callback?: (err: Error | null) => void,
-        ) => {
-          // Simulate successful broker ack
-          if (callback) callback(null);
-          return true;
-        },
-      ),
+    publish: mock(
+      (
+        _exchange: string,
+        _routingKey: string,
+        _content: Buffer,
+        _options: unknown,
+        callback?: (err: Error | null) => void,
+      ) => {
+        // Simulate successful broker ack
+        if (callback) callback(null);
+        return true;
+      },
+    ),
   } as unknown as import("amqplib").ConfirmChannel;
 }
 
 // Mock amqplib regular Channel (no callback on publish)
 function createMockChannel() {
   return {
-    publish: vi.fn().mockReturnValue(true),
+    publish: mock(() => true),
   } as unknown as import("amqplib").Channel;
 }
 
@@ -76,22 +74,22 @@ describe("Publisher", () => {
       const msg = { orderId: "123", amount: 42 };
       await publisher.publish("order.created", msg);
 
-      expect(channel.publish).toHaveBeenCalledOnce();
+      expect(channel.publish).toHaveBeenCalledTimes(1);
       const [exchange, routingKey, body, options, callback] = (
-        channel.publish as ReturnType<typeof vi.fn>
+        channel.publish as Mock
       ).mock.calls[0];
       expect(exchange).toBe("events.topic.exchange");
       expect(routingKey).toBe("order.created");
       expect(JSON.parse(body.toString())).toEqual(msg);
       expect(options.contentType).toBe("application/json");
       expect(options.deliveryMode).toBe(2);
-      expect(callback).toBeTypeOf("function");
+      expect(typeof callback).toBe("function");
     });
 
     it("sets CloudEvents headers with AMQP cloudEvents: prefix", async () => {
       await publisher.publish("order.created", { data: true });
 
-      const [, , , options] = (channel.publish as ReturnType<typeof vi.fn>)
+      const [, , , options] = (channel.publish as Mock)
         .mock.calls[0];
       const headers = options.headers;
 
@@ -121,7 +119,7 @@ describe("Publisher", () => {
       };
       await publisher.publish("order.created", {}, existingHeaders);
 
-      const [, , , options] = (channel.publish as ReturnType<typeof vi.fn>)
+      const [, , , options] = (channel.publish as Mock)
         .mock.calls[0];
       const headers = options.headers;
 
@@ -137,29 +135,27 @@ describe("Publisher", () => {
       await publisher.publish("key1", {});
       await publisher.publish("key2", {});
 
-      const id1 = (channel.publish as ReturnType<typeof vi.fn>).mock
+      const id1 = (channel.publish as Mock).mock
         .calls[0][3].headers[amqpID];
-      const id2 = (channel.publish as ReturnType<typeof vi.fn>).mock
+      const id2 = (channel.publish as Mock).mock
         .calls[1][3].headers[amqpID];
       expect(id1).not.toBe(id2);
     });
 
     it("throws when broker nacks the message", async () => {
       const nackChannel = {
-        publish: vi
-          .fn()
-          .mockImplementation(
-            (
-              _exchange: string,
-              _routingKey: string,
-              _content: Buffer,
-              _options: unknown,
-              callback?: (err: Error | null) => void,
-            ) => {
-              if (callback) callback(new Error("nack"));
-              return true;
-            },
-          ),
+        publish: mock(
+          (
+            _exchange: string,
+            _routingKey: string,
+            _content: Buffer,
+            _options: unknown,
+            callback?: (err: Error | null) => void,
+          ) => {
+            if (callback) callback(new Error("nack"));
+            return true;
+          },
+        ),
       } as unknown as import("amqplib").ConfirmChannel;
 
       const pub = new Publisher();
@@ -188,8 +184,8 @@ describe("Publisher", () => {
     it("publishes without callback (fire-and-forget)", async () => {
       await publisher.publish("order.created", { orderId: "456" });
 
-      expect(channel.publish).toHaveBeenCalledOnce();
-      const args = (channel.publish as ReturnType<typeof vi.fn>).mock
+      expect(channel.publish).toHaveBeenCalledTimes(1);
+      const args = (channel.publish as Mock).mock
         .calls[0];
       // Regular channel publish: 4 args (no callback)
       expect(args).toHaveLength(4);
@@ -203,7 +199,7 @@ describe("Publisher", () => {
     it("still sets CloudEvents headers with AMQP prefix", async () => {
       await publisher.publish("order.created", {});
 
-      const [, , , options] = (channel.publish as ReturnType<typeof vi.fn>)
+      const [, , , options] = (channel.publish as Mock)
         .mock.calls[0];
       const headers = options.headers;
 

@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeAll, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "bun:test";
 import { Connection, Publisher } from "../../src/index.js";
 import type { ConsumableEvent } from "@sparetimecoders/messaging";
 
 const RABBITMQ_URL = process.env.RABBITMQ_URL ?? "";
 
-describe.skipIf(!RABBITMQ_URL)("AMQP integration", () => {
+const describeIntegration = RABBITMQ_URL ? describe : describe.skip;
+
+describeIntegration("AMQP integration", () => {
   const connections: Connection[] = [];
 
   function createConnection(serviceName: string, opts?: { legacySupport?: boolean }): Connection {

@@ -1,18 +1,20 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, mock, beforeEach, type Mock } from "bun:test";
 import { Connection } from "../src/connection.js";
 import * as amqplib from "amqplib";
 import { EventEmitter } from "node:events";
 
-vi.mock("amqplib", () => ({
-  connect: vi.fn(),
+mock.module("amqplib", () => ({
+  connect: mock(),
 }));
 
-const silentLogger = {
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-  debug: vi.fn(),
-};
+function createSilentLogger() {
+  return {
+    info: mock(),
+    warn: mock(),
+    error: mock(),
+    debug: mock(),
+  };
+}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const noopHandler = async (): Promise<any> => {};
@@ -20,39 +22,38 @@ const noopHandler = async (): Promise<any> => {};
 function createMockAmqpConn() {
   const emitter = new EventEmitter();
   const mockSetupChannel = {
-    assertExchange: vi.fn().mockResolvedValue(undefined),
-    assertQueue: vi.fn().mockResolvedValue(undefined),
-    bindQueue: vi.fn().mockResolvedValue(undefined),
-    close: vi.fn().mockResolvedValue(undefined),
+    assertExchange: mock(() => Promise.resolve(undefined)),
+    assertQueue: mock(() => Promise.resolve(undefined)),
+    bindQueue: mock(() => Promise.resolve(undefined)),
+    close: mock(() => Promise.resolve(undefined)),
   };
   const mockConsumerChannel = {
-    assertExchange: vi.fn().mockResolvedValue(undefined),
-    assertQueue: vi.fn().mockResolvedValue(undefined),
-    bindQueue: vi.fn().mockResolvedValue(undefined),
-    close: vi.fn().mockResolvedValue(undefined),
-    prefetch: vi.fn().mockResolvedValue(undefined),
-    consume: vi.fn().mockResolvedValue({ consumerTag: "test-tag" }),
-    ack: vi.fn(),
-    nack: vi.fn(),
+    assertExchange: mock(() => Promise.resolve(undefined)),
+    assertQueue: mock(() => Promise.resolve(undefined)),
+    bindQueue: mock(() => Promise.resolve(undefined)),
+    close: mock(() => Promise.resolve(undefined)),
+    prefetch: mock(() => Promise.resolve(undefined)),
+    consume: mock(() => Promise.resolve({ consumerTag: "test-tag" })),
+    ack: mock(),
+    nack: mock(),
   };
   const mockConfirmChannel = {
-    publish: vi.fn(),
-    close: vi.fn().mockResolvedValue(undefined),
-    prefetch: vi.fn().mockResolvedValue(undefined),
+    publish: mock(),
+    close: mock(() => Promise.resolve(undefined)),
+    prefetch: mock(() => Promise.resolve(undefined)),
   };
 
   let channelCallCount = 0;
   Object.assign(emitter, {
-    createConfirmChannel: vi.fn().mockResolvedValue(mockConfirmChannel),
-    createChannel: vi.fn().mockImplementation(() => {
+    createConfirmChannel: mock(() => Promise.resolve(mockConfirmChannel)),
+    createChannel: mock(() => {
       channelCallCount++;
-      // First createChannel call is the setup channel, subsequent are consumer channels
       if (channelCallCount === 1) {
         return Promise.resolve(mockSetupChannel);
       }
       return Promise.resolve(mockConsumerChannel);
     }),
-    close: vi.fn().mockResolvedValue(undefined),
+    close: mock(() => Promise.resolve(undefined)),
   });
   return {
     conn: emitter as unknown as amqplib.ChannelModel & EventEmitter,
@@ -63,13 +64,14 @@ function createMockAmqpConn() {
 describe("ConsumerOptions dead letter", () => {
   let mockSetupChannel: ReturnType<typeof createMockAmqpConn>["setupChannel"];
   let mockAmqpConn: ReturnType<typeof createMockAmqpConn>["conn"];
+  let silentLogger: ReturnType<typeof createSilentLogger>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    const mock = createMockAmqpConn();
-    mockAmqpConn = mock.conn;
-    mockSetupChannel = mock.setupChannel;
-    vi.mocked(amqplib.connect).mockResolvedValue(mockAmqpConn);
+    silentLogger = createSilentLogger();
+    const mocks = createMockAmqpConn();
+    mockAmqpConn = mocks.conn;
+    mockSetupChannel = mocks.setupChannel;
+    (amqplib.connect as Mock).mockResolvedValue(mockAmqpConn);
   });
 
   it("addEventConsumer passes dead letter exchange to queue arguments", async () => {

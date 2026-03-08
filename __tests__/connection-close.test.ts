@@ -1,51 +1,54 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, mock, beforeEach, type Mock } from "bun:test";
 import { Connection } from "../src/connection.js";
 import * as amqplib from "amqplib";
 import { EventEmitter } from "node:events";
 
-vi.mock("amqplib", () => ({
-  connect: vi.fn(),
+mock.module("amqplib", () => ({
+  connect: mock(),
 }));
 
 function createMockAmqpConn(): amqplib.ChannelModel & EventEmitter {
   const emitter = new EventEmitter();
   const mockSetupChannel = {
-    assertExchange: vi.fn().mockResolvedValue(undefined),
-    assertQueue: vi.fn().mockResolvedValue(undefined),
-    bindQueue: vi.fn().mockResolvedValue(undefined),
-    close: vi.fn().mockResolvedValue(undefined),
+    assertExchange: mock(() => Promise.resolve(undefined)),
+    assertQueue: mock(() => Promise.resolve(undefined)),
+    bindQueue: mock(() => Promise.resolve(undefined)),
+    close: mock(() => Promise.resolve(undefined)),
   };
   const mockConfirmChannel = {
-    publish: vi.fn(),
-    close: vi.fn().mockResolvedValue(undefined),
-    prefetch: vi.fn().mockResolvedValue(undefined),
+    publish: mock(),
+    close: mock(() => Promise.resolve(undefined)),
+    prefetch: mock(() => Promise.resolve(undefined)),
   };
   Object.assign(emitter, {
-    createConfirmChannel: vi.fn().mockResolvedValue(mockConfirmChannel),
-    createChannel: vi.fn().mockResolvedValue(mockSetupChannel),
-    close: vi.fn().mockResolvedValue(undefined),
+    createConfirmChannel: mock(() => Promise.resolve(mockConfirmChannel)),
+    createChannel: mock(() => Promise.resolve(mockSetupChannel)),
+    close: mock(() => Promise.resolve(undefined)),
   });
   return emitter as unknown as amqplib.ChannelModel & EventEmitter;
 }
 
-const silentLogger = {
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-  debug: vi.fn(),
-};
+function createSilentLogger() {
+  return {
+    info: mock(),
+    warn: mock(),
+    error: mock(),
+    debug: mock(),
+  };
+}
 
 describe("Connection close handling", () => {
   let mockConn: amqplib.ChannelModel & EventEmitter;
+  let silentLogger: ReturnType<typeof createSilentLogger>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    silentLogger = createSilentLogger();
     mockConn = createMockAmqpConn();
-    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+    (amqplib.connect as Mock).mockResolvedValue(mockConn);
   });
 
   it("calls onClose when connection emits close unexpectedly", async () => {
-    const onClose = vi.fn();
+    const onClose = mock();
     const conn = new Connection({
       url: "amqp://localhost",
       serviceName: "test",
@@ -58,13 +61,13 @@ describe("Connection close handling", () => {
     // Simulate unexpected close
     mockConn.emit("close");
 
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledTimes(1);
     expect(onClose.mock.calls[0][0]).toBeInstanceOf(Error);
     expect(onClose.mock.calls[0][0].message).toContain("connection closed");
   });
 
   it("passes error details from error event to onClose", async () => {
-    const onClose = vi.fn();
+    const onClose = mock();
     const conn = new Connection({
       url: "amqp://localhost",
       serviceName: "test",
@@ -78,12 +81,12 @@ describe("Connection close handling", () => {
     mockConn.emit("error", new Error("connection forced"));
     mockConn.emit("close");
 
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledTimes(1);
     expect(onClose.mock.calls[0][0].message).toBe("connection forced");
   });
 
   it("does not call onClose during graceful close()", async () => {
-    const onClose = vi.fn();
+    const onClose = mock();
     const conn = new Connection({
       url: "amqp://localhost",
       serviceName: "test",

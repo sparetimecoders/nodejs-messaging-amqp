@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, mock, beforeEach, type Mock } from "bun:test";
 import { QueueConsumer } from "../src/consumer.js";
 import { Publisher } from "../src/publisher.js";
 import type { MetricsRecorder } from "@sparetimecoders/messaging";
@@ -15,29 +15,29 @@ import {
 
 type MessageCallback = (msg: import("amqplib").ConsumeMessage | null) => void;
 
-function createMockMetrics(): MetricsRecorder & { [K in keyof MetricsRecorder]: ReturnType<typeof vi.fn> } {
+function createMockMetrics(): MetricsRecorder & { [K in keyof MetricsRecorder]: Mock<(...args: unknown[]) => unknown> } {
   return {
-    eventReceived: vi.fn(),
-    eventWithoutHandler: vi.fn(),
-    eventNotParsable: vi.fn(),
-    eventAck: vi.fn(),
-    eventNack: vi.fn(),
-    publishSucceed: vi.fn(),
-    publishFailed: vi.fn(),
+    eventReceived: mock(),
+    eventWithoutHandler: mock(),
+    eventNotParsable: mock(),
+    eventAck: mock(),
+    eventNack: mock(),
+    publishSucceed: mock(),
+    publishFailed: mock(),
   };
 }
 
 function createMockChannel() {
   let messageCallback: MessageCallback | null = null;
   return {
-    consume: vi.fn().mockImplementation(
+    consume: mock(
       (_queue: string, cb: MessageCallback) => {
         messageCallback = cb;
         return Promise.resolve({ consumerTag: "test-tag" });
       },
     ),
-    ack: vi.fn(),
-    nack: vi.fn(),
+    ack: mock(),
+    nack: mock(),
     deliverMessage(msg: import("amqplib").ConsumeMessage) {
       messageCallback!(msg);
     },
@@ -120,33 +120,59 @@ function createInvalidJsonMessage(routingKey: string): import("amqplib").Consume
   } as import("amqplib").ConsumeMessage;
 }
 
-const silentLogger = {
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-  debug: vi.fn(),
-};
+function createSilentLogger() {
+  return {
+    info: mock(),
+    warn: mock(),
+    error: mock(),
+    debug: mock(),
+  };
+}
+
+function waitFor(
+  predicate: () => void,
+  timeoutMs = 5000,
+  intervalMs = 10,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const check = () => {
+      try {
+        predicate();
+        resolve();
+      } catch (e) {
+        if (Date.now() - start > timeoutMs) {
+          reject(e);
+        } else {
+          setTimeout(check, intervalMs);
+        }
+      }
+    };
+    check();
+  });
+}
 
 describe("AMQP Consumer Metrics", () => {
   let channel: ReturnType<typeof createMockChannel>;
   let metrics: ReturnType<typeof createMockMetrics>;
+  let silentLogger: ReturnType<typeof createSilentLogger>;
 
   beforeEach(() => {
     channel = createMockChannel();
     metrics = createMockMetrics();
-    vi.clearAllMocks();
+    silentLogger = createSilentLogger();
   });
 
   it("calls eventReceived and eventAck on successful handler", async () => {
     const consumer = new QueueConsumer(
       "test-queue", silentLogger, undefined, undefined, undefined, metrics,
     );
-    consumer.addHandler("order.created", vi.fn().mockResolvedValue(undefined));
+    consumer.addHandler("order.created", mock(() => Promise.resolve(undefined)));
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
     channel.deliverMessage(createMessage("order.created", { id: 1 }));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(channel.ack).toHaveBeenCalled();
     });
 
@@ -160,12 +186,12 @@ describe("AMQP Consumer Metrics", () => {
     const consumer = new QueueConsumer(
       "test-queue", silentLogger, undefined, undefined, undefined, metrics,
     );
-    consumer.addHandler("order.created", vi.fn().mockRejectedValue(new Error("fail")));
+    consumer.addHandler("order.created", mock(() => Promise.reject(new Error("fail"))));
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
     channel.deliverMessage(createMessage("order.created", { id: 1 }));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(channel.nack).toHaveBeenCalled();
     });
 
@@ -179,12 +205,12 @@ describe("AMQP Consumer Metrics", () => {
     const consumer = new QueueConsumer(
       "test-queue", silentLogger, undefined, undefined, undefined, metrics,
     );
-    consumer.addHandler("order.created", vi.fn());
+    consumer.addHandler("order.created", mock());
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
     channel.deliverMessage(createMessage("order.unknown", { id: 1 }));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(channel.nack).toHaveBeenCalled();
     });
 
@@ -196,12 +222,12 @@ describe("AMQP Consumer Metrics", () => {
     const consumer = new QueueConsumer(
       "test-queue", silentLogger, undefined, undefined, undefined, metrics,
     );
-    consumer.addHandler("order.created", vi.fn());
+    consumer.addHandler("order.created", mock());
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
     channel.deliverMessage(createInvalidJsonMessage("order.created"));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(channel.nack).toHaveBeenCalled();
     });
 
@@ -214,12 +240,12 @@ describe("AMQP Consumer Metrics", () => {
     const consumer = new QueueConsumer(
       "test-queue", silentLogger, undefined, undefined, undefined, metrics, mapper,
     );
-    consumer.addHandler("order.#", vi.fn().mockResolvedValue(undefined));
+    consumer.addHandler("order.#", mock(() => Promise.resolve(undefined)));
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
     channel.deliverMessage(createMessage("order.123", { id: 1 }));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(channel.ack).toHaveBeenCalled();
     });
 
@@ -234,12 +260,12 @@ describe("AMQP Consumer Metrics", () => {
     const consumer = new QueueConsumer(
       "test-queue", silentLogger, undefined, undefined, undefined, metrics, mapper,
     );
-    consumer.addHandler("order.created", vi.fn().mockResolvedValue(undefined));
+    consumer.addHandler("order.created", mock(() => Promise.resolve(undefined)));
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
     channel.deliverMessage(createMessage("order.created", { id: 1 }));
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(channel.ack).toHaveBeenCalled();
     });
 
@@ -252,13 +278,12 @@ describe("AMQP Publisher Metrics", () => {
 
   beforeEach(() => {
     metrics = createMockMetrics();
-    vi.clearAllMocks();
   });
 
   it("calls publishSucceed on successful publish", async () => {
     const publisher = new Publisher();
     const channel = {
-      publish: vi.fn().mockImplementation(
+      publish: mock(
         (_e: string, _r: string, _c: Buffer, _o: unknown, cb?: (err: Error | null) => void) => {
           if (cb) cb(null);
           return true;
@@ -278,7 +303,7 @@ describe("AMQP Publisher Metrics", () => {
   it("calls publishFailed on publish error", async () => {
     const publisher = new Publisher();
     const channel = {
-      publish: vi.fn().mockImplementation(
+      publish: mock(
         (_e: string, _r: string, _c: Buffer, _o: unknown, cb?: (err: Error | null) => void) => {
           if (cb) cb(new Error("nack"));
           return true;
@@ -300,7 +325,7 @@ describe("AMQP Publisher Metrics", () => {
     const publisher = new Publisher();
     const mapper = (key: string) => key.replace(/\.\d+/, ".ID");
     const channel = {
-      publish: vi.fn().mockImplementation(
+      publish: mock(
         (_e: string, _r: string, _c: Buffer, _o: unknown, cb?: (err: Error | null) => void) => {
           if (cb) cb(null);
           return true;

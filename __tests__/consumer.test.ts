@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, mock, beforeEach } from "bun:test";
 import { QueueConsumer } from "../src/consumer.js";
 import {
   CESpecVersion,
@@ -16,7 +16,7 @@ type MessageCallback = (msg: import("amqplib").ConsumeMessage | null) => void;
 function createMockChannel() {
   let messageCallback: MessageCallback | null = null;
   return {
-    consume: vi.fn().mockImplementation(
+    consume: mock(
       (
         _queue: string,
         cb: MessageCallback,
@@ -26,8 +26,8 @@ function createMockChannel() {
         return Promise.resolve({ consumerTag: "test-tag" });
       },
     ),
-    ack: vi.fn(),
-    nack: vi.fn(),
+    ack: mock(),
+    nack: mock(),
     deliverMessage(msg: import("amqplib").ConsumeMessage) {
       messageCallback!(msg);
     },
@@ -148,25 +148,51 @@ function createInvalidJsonMessage(
   } as import("amqplib").ConsumeMessage;
 }
 
-const silentLogger = {
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-  debug: vi.fn(),
-};
+function createSilentLogger() {
+  return {
+    info: mock(),
+    warn: mock(),
+    error: mock(),
+    debug: mock(),
+  };
+}
+
+function waitFor(
+  predicate: () => void,
+  timeoutMs = 5000,
+  intervalMs = 10,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const check = () => {
+      try {
+        predicate();
+        resolve();
+      } catch (e) {
+        if (Date.now() - start > timeoutMs) {
+          reject(e);
+        } else {
+          setTimeout(check, intervalMs);
+        }
+      }
+    };
+    check();
+  });
+}
 
 describe("QueueConsumer", () => {
   let channel: ReturnType<typeof createMockChannel>;
   let consumer: QueueConsumer;
+  let silentLogger: ReturnType<typeof createSilentLogger>;
 
   beforeEach(() => {
     channel = createMockChannel();
+    silentLogger = createSilentLogger();
     consumer = new QueueConsumer("test-queue", silentLogger);
-    vi.clearAllMocks();
   });
 
   it("acks on successful handler", async () => {
-    const handler = vi.fn().mockResolvedValue(undefined);
+    const handler = mock(() => Promise.resolve(undefined));
     consumer.addHandler("order.created", handler);
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
@@ -174,10 +200,10 @@ describe("QueueConsumer", () => {
     channel.deliverMessage(msg);
 
     // Wait for async handler
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(channel.ack).toHaveBeenCalledWith(msg);
     });
-    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledTimes(1);
     const event = handler.mock.calls[0][0];
     expect(event.payload).toEqual({ orderId: "123" });
     expect(event.deliveryInfo.key).toBe("order.created");
@@ -186,35 +212,33 @@ describe("QueueConsumer", () => {
   });
 
   it("nacks with requeue on handler error", async () => {
-    const handler = vi.fn().mockRejectedValue(new Error("transient failure"));
+    const handler = mock(() => Promise.reject(new Error("transient failure")));
     consumer.addHandler("order.created", handler);
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
     const msg = createMessage("order.created", { orderId: "123" });
     channel.deliverMessage(msg);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(channel.nack).toHaveBeenCalledWith(msg, false, true);
     });
   });
 
   it("nacks without requeue on parse error from handler", async () => {
-    const handler = vi
-      .fn()
-      .mockRejectedValue(new Error(`${ErrParseJSON}: bad data`));
+    const handler = mock(() => Promise.reject(new Error(`${ErrParseJSON}: bad data`)));
     consumer.addHandler("order.created", handler);
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
     const msg = createMessage("order.created", { data: true });
     channel.deliverMessage(msg);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(channel.nack).toHaveBeenCalledWith(msg, false, false);
     });
   });
 
   it("nacks without requeue on invalid JSON body", async () => {
-    const handler = vi.fn();
+    const handler = mock();
     consumer.addHandler("order.created", handler);
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
@@ -222,36 +246,36 @@ describe("QueueConsumer", () => {
     channel.deliverMessage(msg);
 
     // Handler should not be called for unparseable messages
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(channel.nack).toHaveBeenCalledWith(msg, false, false);
     });
     expect(handler).not.toHaveBeenCalled();
   });
 
   it("nacks without requeue on unknown routing key", async () => {
-    const handler = vi.fn().mockResolvedValue(undefined);
+    const handler = mock(() => Promise.resolve(undefined));
     consumer.addHandler("order.created", handler);
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
     const msg = createMessage("order.unknown", { data: true });
     channel.deliverMessage(msg);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(channel.nack).toHaveBeenCalledWith(msg, false, false);
     });
     expect(handler).not.toHaveBeenCalled();
   });
 
   it("extracts CE metadata into the event", async () => {
-    const handler = vi.fn().mockResolvedValue(undefined);
+    const handler = mock(() => Promise.resolve(undefined));
     consumer.addHandler("order.created", handler);
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
     const msg = createMessage("order.created", { data: true });
     channel.deliverMessage(msg);
 
-    await vi.waitFor(() => {
-      expect(handler).toHaveBeenCalledOnce();
+    await waitFor(() => {
+      expect(handler).toHaveBeenCalledTimes(1);
     });
     const event = handler.mock.calls[0][0];
     expect(event.specVersion).toBe(CESpecVersionValue);
@@ -261,62 +285,62 @@ describe("QueueConsumer", () => {
   });
 
   it("throws when registering duplicate routing key", () => {
-    consumer.addHandler("order.created", vi.fn());
-    expect(() => consumer.addHandler("order.created", vi.fn())).toThrow(
+    consumer.addHandler("order.created", mock());
+    expect(() => consumer.addHandler("order.created", mock())).toThrow(
       'routing key "order.created" overlaps "order.created"',
     );
   });
 
   it("throws when registering overlapping wildcard routing key", () => {
-    consumer.addHandler("order.#", vi.fn());
-    expect(() => consumer.addHandler("order.created", vi.fn())).toThrow(
+    consumer.addHandler("order.#", mock());
+    expect(() => consumer.addHandler("order.created", mock())).toThrow(
       'routing key "order.created" overlaps "order.#"',
     );
   });
 
   it("matches handler using wildcard pattern", async () => {
-    const handler = vi.fn().mockResolvedValue(undefined);
+    const handler = mock(() => Promise.resolve(undefined));
     consumer.addHandler("order.#", handler);
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
     const msg = createMessage("order.created", { orderId: "123" });
     channel.deliverMessage(msg);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(channel.ack).toHaveBeenCalledWith(msg);
     });
-    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledTimes(1);
     expect(handler.mock.calls[0][0].deliveryInfo.key).toBe("order.created");
   });
 
   it("matches handler using star wildcard pattern", async () => {
-    const handler = vi.fn().mockResolvedValue(undefined);
+    const handler = mock(() => Promise.resolve(undefined));
     consumer.addHandler("order.*", handler);
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
     const msg = createMessage("order.created", { orderId: "123" });
     channel.deliverMessage(msg);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(channel.ack).toHaveBeenCalledWith(msg);
     });
-    expect(handler).toHaveBeenCalledOnce();
+    expect(handler).toHaveBeenCalledTimes(1);
   });
 
   it("star wildcard does not match multi-level routing key", async () => {
-    consumer.addHandler("order.*", vi.fn().mockResolvedValue(undefined));
+    consumer.addHandler("order.*", mock(() => Promise.resolve(undefined)));
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
     const msg = createMessage("order.created.v2", { orderId: "123" });
     channel.deliverMessage(msg);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(channel.nack).toHaveBeenCalledWith(msg, false, false);
     });
   });
 
   it("returns consumer tag from consume()", async () => {
-    consumer.addHandler("key", vi.fn());
+    consumer.addHandler("key", mock());
     const tag = await consumer.consume(
       channel as unknown as import("amqplib").Channel,
     );
@@ -325,7 +349,7 @@ describe("QueueConsumer", () => {
   });
 
   it("logs warning when consumer receives null message (channel close)", async () => {
-    consumer.addHandler("order.created", vi.fn());
+    consumer.addHandler("order.created", mock());
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
     // Simulate channel close by sending null
@@ -341,7 +365,7 @@ describe("QueueConsumer", () => {
   });
 
   it("ignores messages after stop() is called", async () => {
-    const handler = vi.fn().mockResolvedValue(undefined);
+    const handler = mock(() => Promise.resolve(undefined));
     consumer.addHandler("order.created", handler);
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
@@ -380,15 +404,15 @@ describe("QueueConsumer", () => {
       const legacyConsumer = new QueueConsumer(
         "test-queue", silentLogger, undefined, undefined, undefined, undefined, undefined, true,
       );
-      const handler = vi.fn().mockResolvedValue(undefined);
+      const handler = mock(() => Promise.resolve(undefined));
       legacyConsumer.addHandler("order.created", handler);
       await legacyConsumer.consume(channel as unknown as import("amqplib").Channel);
 
       const msg = createLegacyMessage("order.created", { orderId: "legacy-1" });
       channel.deliverMessage(msg);
 
-      await vi.waitFor(() => {
-        expect(handler).toHaveBeenCalledOnce();
+      await waitFor(() => {
+        expect(handler).toHaveBeenCalledTimes(1);
       });
       const event = handler.mock.calls[0][0];
       expect(event.id).toMatch(
@@ -406,15 +430,15 @@ describe("QueueConsumer", () => {
       const legacyConsumer = new QueueConsumer(
         "test-queue", silentLogger, undefined, undefined, undefined, undefined, undefined, true,
       );
-      const handler = vi.fn().mockResolvedValue(undefined);
+      const handler = mock(() => Promise.resolve(undefined));
       legacyConsumer.addHandler("order.created", handler);
       await legacyConsumer.consume(channel as unknown as import("amqplib").Channel);
 
       const msg = createMessage("order.created", { orderId: "ce-1" });
       channel.deliverMessage(msg);
 
-      await vi.waitFor(() => {
-        expect(handler).toHaveBeenCalledOnce();
+      await waitFor(() => {
+        expect(handler).toHaveBeenCalledTimes(1);
       });
       const event = handler.mock.calls[0][0];
       expect(event.id).toBe("test-id-123");
@@ -422,15 +446,15 @@ describe("QueueConsumer", () => {
     });
 
     it("does not enrich metadata when legacySupport is disabled (default)", async () => {
-      const handler = vi.fn().mockResolvedValue(undefined);
+      const handler = mock(() => Promise.resolve(undefined));
       consumer.addHandler("order.created", handler);
       await consumer.consume(channel as unknown as import("amqplib").Channel);
 
       const msg = createLegacyMessage("order.created", { orderId: "legacy-2" });
       channel.deliverMessage(msg);
 
-      await vi.waitFor(() => {
-        expect(handler).toHaveBeenCalledOnce();
+      await waitFor(() => {
+        expect(handler).toHaveBeenCalledTimes(1);
       });
       const event = handler.mock.calls[0][0];
       expect(event.id).toBe("");
@@ -442,15 +466,15 @@ describe("QueueConsumer", () => {
       const legacyConsumer = new QueueConsumer(
         "test-queue", silentLogger, undefined, undefined, undefined, undefined, undefined, true,
       );
-      const handler = vi.fn().mockResolvedValue(undefined);
+      const handler = mock(() => Promise.resolve(undefined));
       legacyConsumer.addHandler("order.created", handler);
       await legacyConsumer.consume(channel as unknown as import("amqplib").Channel);
 
       const msg = createLegacyMessage("order.created", { data: true });
       channel.deliverMessage(msg);
 
-      await vi.waitFor(() => {
-        expect(handler).toHaveBeenCalledOnce();
+      await waitFor(() => {
+        expect(handler).toHaveBeenCalledTimes(1);
       });
       expect(silentLogger.debug).toHaveBeenCalledWith(
         expect.stringContaining("legacy message detected"),

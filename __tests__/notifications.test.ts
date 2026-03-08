@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, mock, beforeEach } from "bun:test";
 import { QueueConsumer } from "../src/consumer.js";
 import type { Notification, ErrorNotification } from "@sparetimecoders/messaging";
 import {
@@ -16,7 +16,7 @@ type MessageCallback = (msg: import("amqplib").ConsumeMessage | null) => void;
 function createMockChannel() {
   let messageCallback: MessageCallback | null = null;
   return {
-    consume: vi.fn().mockImplementation(
+    consume: mock(
       (
         _queue: string,
         cb: MessageCallback,
@@ -26,8 +26,8 @@ function createMockChannel() {
         return Promise.resolve({ consumerTag: "test-tag" });
       },
     ),
-    ack: vi.fn(),
-    nack: vi.fn(),
+    ack: mock(),
+    nack: mock(),
     deliverMessage(msg: import("amqplib").ConsumeMessage) {
       messageCallback!(msg);
     },
@@ -75,24 +75,50 @@ function createMessage(
   } as import("amqplib").ConsumeMessage;
 }
 
-const silentLogger = {
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-  debug: vi.fn(),
-};
+function createSilentLogger() {
+  return {
+    info: mock(),
+    warn: mock(),
+    error: mock(),
+    debug: mock(),
+  };
+}
+
+function waitFor(
+  predicate: () => void,
+  timeoutMs = 5000,
+  intervalMs = 10,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const check = () => {
+      try {
+        predicate();
+        resolve();
+      } catch (e) {
+        if (Date.now() - start > timeoutMs) {
+          reject(e);
+        } else {
+          setTimeout(check, intervalMs);
+        }
+      }
+    };
+    check();
+  });
+}
 
 describe("AMQP notifications", () => {
   let channel: ReturnType<typeof createMockChannel>;
+  let silentLogger: ReturnType<typeof createSilentLogger>;
 
   beforeEach(() => {
     channel = createMockChannel();
-    vi.clearAllMocks();
+    silentLogger = createSilentLogger();
   });
 
   it("calls onNotification after successful handler execution", async () => {
     const notifications: Notification[] = [];
-    const onNotification = vi.fn((n: Notification) => notifications.push(n));
+    const onNotification = mock((n: Notification) => notifications.push(n));
     const consumer = new QueueConsumer(
       "test-queue",
       silentLogger,
@@ -100,18 +126,18 @@ describe("AMQP notifications", () => {
       onNotification,
     );
 
-    const handler = vi.fn().mockResolvedValue(undefined);
+    const handler = mock(() => Promise.resolve(undefined));
     consumer.addHandler("order.created", handler);
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
     const msg = createMessage("order.created", { orderId: "123" });
     channel.deliverMessage(msg);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(channel.ack).toHaveBeenCalledWith(msg);
     });
 
-    expect(onNotification).toHaveBeenCalledOnce();
+    expect(onNotification).toHaveBeenCalledTimes(1);
     const n = notifications[0];
     expect(n.source).toBe("CONSUMER");
     expect(n.deliveryInfo.key).toBe("order.created");
@@ -122,7 +148,7 @@ describe("AMQP notifications", () => {
 
   it("calls onError after handler failure", async () => {
     const errors: ErrorNotification[] = [];
-    const onError = vi.fn((n: ErrorNotification) => errors.push(n));
+    const onError = mock((n: ErrorNotification) => errors.push(n));
     const consumer = new QueueConsumer(
       "test-queue",
       silentLogger,
@@ -132,18 +158,18 @@ describe("AMQP notifications", () => {
     );
 
     const handlerError = new Error("handler failed");
-    const handler = vi.fn().mockRejectedValue(handlerError);
+    const handler = mock(() => Promise.reject(handlerError));
     consumer.addHandler("order.created", handler);
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
     const msg = createMessage("order.created", { orderId: "123" });
     channel.deliverMessage(msg);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(channel.nack).toHaveBeenCalled();
     });
 
-    expect(onError).toHaveBeenCalledOnce();
+    expect(onError).toHaveBeenCalledTimes(1);
     const n = errors[0];
     expect(n.source).toBe("CONSUMER");
     expect(n.error).toBe(handlerError);
@@ -154,14 +180,14 @@ describe("AMQP notifications", () => {
   it("works without notification callbacks (no crash)", async () => {
     const consumer = new QueueConsumer("test-queue", silentLogger);
 
-    const handler = vi.fn().mockResolvedValue(undefined);
+    const handler = mock(() => Promise.resolve(undefined));
     consumer.addHandler("order.created", handler);
     await consumer.consume(channel as unknown as import("amqplib").Channel);
 
     const msg = createMessage("order.created", { orderId: "123" });
     channel.deliverMessage(msg);
 
-    await vi.waitFor(() => {
+    await waitFor(() => {
       expect(channel.ack).toHaveBeenCalledWith(msg);
     });
   });
