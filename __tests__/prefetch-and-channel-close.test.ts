@@ -193,13 +193,16 @@ describe("heartbeat option", () => {
 });
 
 describe("connection name", () => {
+  let silentLogger: ReturnType<typeof createSilentLogger>;
+
   beforeEach(() => {
-    vi.clearAllMocks();
+    silentLogger = createSilentLogger();
+    (amqplib.connect as Mock).mockReset();
   });
 
   it("sets connection_name in clientProperties with serviceName#version#@hostname", async () => {
     const mockConn = createMockAmqpConn();
-    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+    (amqplib.connect as Mock).mockResolvedValue(mockConn);
 
     const conn = new Connection({
       url: "amqp://localhost",
@@ -209,7 +212,7 @@ describe("connection name", () => {
 
     await conn.start();
 
-    const callArgs = vi.mocked(amqplib.connect).mock.calls[0];
+    const callArgs = (amqplib.connect as Mock).mock.calls[0];
     const socketOpts = callArgs[1] as { clientProperties: { connection_name: string } };
     expect(socketOpts.clientProperties.connection_name).toMatch(
       /^my-service#.+#@.+$/,
@@ -218,7 +221,7 @@ describe("connection name", () => {
 
   it("includes service name in connection_name", async () => {
     const mockConn = createMockAmqpConn();
-    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+    (amqplib.connect as Mock).mockResolvedValue(mockConn);
 
     const conn = new Connection({
       url: "amqp://localhost",
@@ -228,7 +231,7 @@ describe("connection name", () => {
 
     await conn.start();
 
-    const callArgs = vi.mocked(amqplib.connect).mock.calls[0];
+    const callArgs = (amqplib.connect as Mock).mock.calls[0];
     const socketOpts = callArgs[1] as { clientProperties: { connection_name: string } };
     expect(socketOpts.clientProperties.connection_name).toContain("order-processor#");
   });
