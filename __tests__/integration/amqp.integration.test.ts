@@ -46,9 +46,9 @@ describe.skipIf(!RABBITMQ_URL)("AMQP integration", () => {
 
     expect(received).toHaveLength(1);
     expect(received[0].payload).toEqual({ orderId: "123" });
-    expect(received[0].metadata.type).toBe("order.created");
-    expect(received[0].metadata.source).toBe("int-pub");
-    expect(received[0].metadata.specVersion).toBe("1.0");
+    expect(received[0].type).toBe("order.created");
+    expect(received[0].source).toBe("int-pub");
+    expect(received[0].specVersion).toBe("1.0");
     expect(received[0].deliveryInfo.key).toBe("order.created");
   });
 
