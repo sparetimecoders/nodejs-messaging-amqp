@@ -3,6 +3,7 @@
   "packages": {
     ".": {
       "release-type": "node",
+      "initial-version": "0.0.1",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true
     }
