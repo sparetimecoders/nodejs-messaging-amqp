@@ -1,28 +1,30 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, mock, beforeEach, type Mock } from "bun:test";
 import { Connection } from "../src/connection.js";
 import * as amqplib from "amqplib";
 import { EventEmitter } from "node:events";
 
-vi.mock("amqplib", () => ({
-  connect: vi.fn(),
+mock.module("amqplib", () => ({
+  connect: mock(),
 }));
 
-const silentLogger = {
-  info: vi.fn(),
-  warn: vi.fn(),
-  error: vi.fn(),
-  debug: vi.fn(),
-};
+function createSilentLogger() {
+  return {
+    info: mock(),
+    warn: mock(),
+    error: mock(),
+    debug: mock(),
+  };
+}
 
 function createMockChannel(): amqplib.Channel & EventEmitter {
   const emitter = new EventEmitter();
   Object.assign(emitter, {
-    assertExchange: vi.fn().mockResolvedValue(undefined),
-    assertQueue: vi.fn().mockResolvedValue(undefined),
-    bindQueue: vi.fn().mockResolvedValue(undefined),
-    close: vi.fn().mockResolvedValue(undefined),
-    prefetch: vi.fn().mockResolvedValue(undefined),
-    consume: vi.fn().mockResolvedValue({ consumerTag: "tag-1" }),
+    assertExchange: mock(() => Promise.resolve(undefined)),
+    assertQueue: mock(() => Promise.resolve(undefined)),
+    bindQueue: mock(() => Promise.resolve(undefined)),
+    close: mock(() => Promise.resolve(undefined)),
+    prefetch: mock(() => Promise.resolve(undefined)),
+    consume: mock(() => Promise.resolve({ consumerTag: "tag-1" })),
   });
   return emitter as unknown as amqplib.Channel & EventEmitter;
 }
@@ -36,33 +38,35 @@ function createMockAmqpConn(
 
   let callCount = 0;
   Object.assign(emitter, {
-    createConfirmChannel: vi.fn().mockResolvedValue(createMockChannel()),
-    createChannel: vi.fn().mockImplementation(() => {
+    createConfirmChannel: mock(() => Promise.resolve(createMockChannel())),
+    createChannel: mock(() => {
       callCount++;
       // First createChannel call is the setup channel, subsequent are consumer channels
       return Promise.resolve(callCount === 1 ? setupChannel : ch);
     }),
-    close: vi.fn().mockResolvedValue(undefined),
+    close: mock(() => Promise.resolve(undefined)),
   });
   return emitter as unknown as amqplib.ChannelModel & EventEmitter;
 }
 
 describe("prefetchLimit option", () => {
+  let silentLogger: ReturnType<typeof createSilentLogger>;
+
   beforeEach(() => {
-    vi.clearAllMocks();
+    silentLogger = createSilentLogger();
   });
 
   it("applies default prefetch of 20 when not specified", async () => {
     const consumerCh = createMockChannel();
     const mockConn = createMockAmqpConn(consumerCh);
-    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+    (amqplib.connect as Mock).mockResolvedValue(mockConn);
 
     const conn = new Connection({
       url: "amqp://localhost",
       serviceName: "test",
       logger: silentLogger,
     });
-    conn.addEventConsumer("order.#", vi.fn().mockResolvedValue(undefined));
+    conn.addEventConsumer("order.#", mock(() => Promise.resolve(undefined)));
 
     await conn.start();
 
@@ -72,7 +76,7 @@ describe("prefetchLimit option", () => {
   it("applies custom prefetch limit", async () => {
     const consumerCh = createMockChannel();
     const mockConn = createMockAmqpConn(consumerCh);
-    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+    (amqplib.connect as Mock).mockResolvedValue(mockConn);
 
     const conn = new Connection({
       url: "amqp://localhost",
@@ -80,7 +84,7 @@ describe("prefetchLimit option", () => {
       logger: silentLogger,
       prefetchLimit: 1,
     });
-    conn.addEventConsumer("order.#", vi.fn().mockResolvedValue(undefined));
+    conn.addEventConsumer("order.#", mock(() => Promise.resolve(undefined)));
 
     await conn.start();
 
@@ -90,7 +94,7 @@ describe("prefetchLimit option", () => {
   it("applies higher prefetch for throughput", async () => {
     const consumerCh = createMockChannel();
     const mockConn = createMockAmqpConn(consumerCh);
-    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+    (amqplib.connect as Mock).mockResolvedValue(mockConn);
 
     const conn = new Connection({
       url: "amqp://localhost",
@@ -98,7 +102,7 @@ describe("prefetchLimit option", () => {
       logger: silentLogger,
       prefetchLimit: 50,
     });
-    conn.addEventConsumer("order.#", vi.fn().mockResolvedValue(undefined));
+    conn.addEventConsumer("order.#", mock(() => Promise.resolve(undefined)));
 
     await conn.start();
 
@@ -107,13 +111,15 @@ describe("prefetchLimit option", () => {
 });
 
 describe("heartbeat option", () => {
+  let silentLogger: ReturnType<typeof createSilentLogger>;
+
   beforeEach(() => {
-    vi.clearAllMocks();
+    silentLogger = createSilentLogger();
   });
 
   it("passes default heartbeat of 10 to amqplib connect", async () => {
     const mockConn = createMockAmqpConn();
-    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+    (amqplib.connect as Mock).mockResolvedValue(mockConn);
 
     const conn = new Connection({
       url: "amqp://localhost",
@@ -131,7 +137,7 @@ describe("heartbeat option", () => {
 
   it("passes custom heartbeat value to amqplib connect", async () => {
     const mockConn = createMockAmqpConn();
-    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+    (amqplib.connect as Mock).mockResolvedValue(mockConn);
 
     const conn = new Connection({
       url: "amqp://localhost",
@@ -150,7 +156,7 @@ describe("heartbeat option", () => {
 
   it("preserves existing heartbeat in URL", async () => {
     const mockConn = createMockAmqpConn();
-    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+    (amqplib.connect as Mock).mockResolvedValue(mockConn);
 
     const conn = new Connection({
       url: "amqp://localhost?heartbeat=60",
@@ -169,7 +175,7 @@ describe("heartbeat option", () => {
 
   it("appends heartbeat with & when URL has existing query params", async () => {
     const mockConn = createMockAmqpConn();
-    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+    (amqplib.connect as Mock).mockResolvedValue(mockConn);
 
     const conn = new Connection({
       url: "amqp://localhost?frameMax=4096",
@@ -187,13 +193,16 @@ describe("heartbeat option", () => {
 });
 
 describe("connection name", () => {
+  let silentLogger: ReturnType<typeof createSilentLogger>;
+
   beforeEach(() => {
-    vi.clearAllMocks();
+    silentLogger = createSilentLogger();
+    (amqplib.connect as Mock).mockReset();
   });
 
   it("sets connection_name in clientProperties with serviceName#version#@hostname", async () => {
     const mockConn = createMockAmqpConn();
-    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+    (amqplib.connect as Mock).mockResolvedValue(mockConn);
 
     const conn = new Connection({
       url: "amqp://localhost",
@@ -203,7 +212,7 @@ describe("connection name", () => {
 
     await conn.start();
 
-    const callArgs = vi.mocked(amqplib.connect).mock.calls[0];
+    const callArgs = (amqplib.connect as Mock).mock.calls[0];
     const socketOpts = callArgs[1] as { clientProperties: { connection_name: string } };
     expect(socketOpts.clientProperties.connection_name).toMatch(
       /^my-service#.+#@.+$/,
@@ -212,7 +221,7 @@ describe("connection name", () => {
 
   it("includes service name in connection_name", async () => {
     const mockConn = createMockAmqpConn();
-    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+    (amqplib.connect as Mock).mockResolvedValue(mockConn);
 
     const conn = new Connection({
       url: "amqp://localhost",
@@ -222,53 +231,55 @@ describe("connection name", () => {
 
     await conn.start();
 
-    const callArgs = vi.mocked(amqplib.connect).mock.calls[0];
+    const callArgs = (amqplib.connect as Mock).mock.calls[0];
     const socketOpts = callArgs[1] as { clientProperties: { connection_name: string } };
     expect(socketOpts.clientProperties.connection_name).toContain("order-processor#");
   });
 });
 
 describe("channel close listener", () => {
+  let silentLogger: ReturnType<typeof createSilentLogger>;
+
   beforeEach(() => {
-    vi.clearAllMocks();
+    silentLogger = createSilentLogger();
   });
 
   it("calls onClose when consumer channel emits error", async () => {
     const consumerCh = createMockChannel();
     const mockConn = createMockAmqpConn(consumerCh);
-    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+    (amqplib.connect as Mock).mockResolvedValue(mockConn);
 
-    const onClose = vi.fn();
+    const onClose = mock();
     const conn = new Connection({
       url: "amqp://localhost",
       serviceName: "test",
       logger: silentLogger,
       onClose,
     });
-    conn.addEventConsumer("order.#", vi.fn().mockResolvedValue(undefined));
+    conn.addEventConsumer("order.#", mock(() => Promise.resolve(undefined)));
 
     await conn.start();
 
     const channelErr = new Error("channel closed by server");
     consumerCh.emit("error", channelErr);
 
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledWith(channelErr);
   });
 
   it("does not call onClose for channel error during graceful close", async () => {
     const consumerCh = createMockChannel();
     const mockConn = createMockAmqpConn(consumerCh);
-    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+    (amqplib.connect as Mock).mockResolvedValue(mockConn);
 
-    const onClose = vi.fn();
+    const onClose = mock();
     const conn = new Connection({
       url: "amqp://localhost",
       serviceName: "test",
       logger: silentLogger,
       onClose,
     });
-    conn.addEventConsumer("order.#", vi.fn().mockResolvedValue(undefined));
+    conn.addEventConsumer("order.#", mock(() => Promise.resolve(undefined)));
 
     await conn.start();
     await conn.close();
@@ -281,9 +292,9 @@ describe("channel close listener", () => {
   it("works with prefetchLimit and onClose together", async () => {
     const consumerCh = createMockChannel();
     const mockConn = createMockAmqpConn(consumerCh);
-    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+    (amqplib.connect as Mock).mockResolvedValue(mockConn);
 
-    const onClose = vi.fn();
+    const onClose = mock();
     const conn = new Connection({
       url: "amqp://localhost",
       serviceName: "test",
@@ -291,28 +302,28 @@ describe("channel close listener", () => {
       prefetchLimit: 5,
       onClose,
     });
-    conn.addEventConsumer("order.#", vi.fn().mockResolvedValue(undefined));
+    conn.addEventConsumer("order.#", mock(() => Promise.resolve(undefined)));
 
     await conn.start();
 
     expect(consumerCh.prefetch).toHaveBeenCalledWith(5);
 
     consumerCh.emit("error", new Error("channel reset"));
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("logs consumer loop exit when channel emits error", async () => {
     const consumerCh = createMockChannel();
     const mockConn = createMockAmqpConn(consumerCh);
-    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+    (amqplib.connect as Mock).mockResolvedValue(mockConn);
 
     const conn = new Connection({
       url: "amqp://localhost",
       serviceName: "test",
       logger: silentLogger,
-      onClose: vi.fn(),
+      onClose: mock(),
     });
-    conn.addEventConsumer("order.#", vi.fn().mockResolvedValue(undefined));
+    conn.addEventConsumer("order.#", mock(() => Promise.resolve(undefined)));
 
     await conn.start();
 
