@@ -123,7 +123,10 @@ describe("heartbeat option", () => {
 
     await conn.start();
 
-    expect(amqplib.connect).toHaveBeenCalledWith("amqp://localhost?heartbeat=10");
+    expect(amqplib.connect).toHaveBeenCalledWith(
+      "amqp://localhost?heartbeat=10",
+      expect.objectContaining({ clientProperties: expect.any(Object) }),
+    );
   });
 
   it("passes custom heartbeat value to amqplib connect", async () => {
@@ -139,7 +142,10 @@ describe("heartbeat option", () => {
 
     await conn.start();
 
-    expect(amqplib.connect).toHaveBeenCalledWith("amqp://localhost?heartbeat=30");
+    expect(amqplib.connect).toHaveBeenCalledWith(
+      "amqp://localhost?heartbeat=30",
+      expect.objectContaining({ clientProperties: expect.any(Object) }),
+    );
   });
 
   it("preserves existing heartbeat in URL", async () => {
@@ -155,7 +161,10 @@ describe("heartbeat option", () => {
 
     await conn.start();
 
-    expect(amqplib.connect).toHaveBeenCalledWith("amqp://localhost?heartbeat=60");
+    expect(amqplib.connect).toHaveBeenCalledWith(
+      "amqp://localhost?heartbeat=60",
+      expect.objectContaining({ clientProperties: expect.any(Object) }),
+    );
   });
 
   it("appends heartbeat with & when URL has existing query params", async () => {
@@ -170,7 +179,52 @@ describe("heartbeat option", () => {
 
     await conn.start();
 
-    expect(amqplib.connect).toHaveBeenCalledWith("amqp://localhost?frameMax=4096&heartbeat=10");
+    expect(amqplib.connect).toHaveBeenCalledWith(
+      "amqp://localhost?frameMax=4096&heartbeat=10",
+      expect.objectContaining({ clientProperties: expect.any(Object) }),
+    );
+  });
+});
+
+describe("connection name", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("sets connection_name in clientProperties with serviceName#version#@hostname", async () => {
+    const mockConn = createMockAmqpConn();
+    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+
+    const conn = new Connection({
+      url: "amqp://localhost",
+      serviceName: "my-service",
+      logger: silentLogger,
+    });
+
+    await conn.start();
+
+    const callArgs = vi.mocked(amqplib.connect).mock.calls[0];
+    const socketOpts = callArgs[1] as { clientProperties: { connection_name: string } };
+    expect(socketOpts.clientProperties.connection_name).toMatch(
+      /^my-service#.+#@.+$/,
+    );
+  });
+
+  it("includes service name in connection_name", async () => {
+    const mockConn = createMockAmqpConn();
+    vi.mocked(amqplib.connect).mockResolvedValue(mockConn);
+
+    const conn = new Connection({
+      url: "amqp://localhost",
+      serviceName: "order-processor",
+      logger: silentLogger,
+    });
+
+    await conn.start();
+
+    const callArgs = vi.mocked(amqplib.connect).mock.calls[0];
+    const socketOpts = callArgs[1] as { clientProperties: { connection_name: string } };
+    expect(socketOpts.clientProperties.connection_name).toContain("order-processor#");
   });
 });
 

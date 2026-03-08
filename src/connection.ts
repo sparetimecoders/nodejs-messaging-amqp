@@ -2,6 +2,8 @@
 // Copyright (c) 2026 sparetimecoders
 
 import * as amqplib from "amqplib";
+import { hostname } from "node:os";
+import { createRequire } from "node:module";
 import type { TextMapPropagator } from "@opentelemetry/api";
 import type {
   Topology,
@@ -430,9 +432,13 @@ export class Connection {
       `[gomessaging/amqp] Starting connection to ${this.url} for service "${this.serviceName}"`,
     );
 
-    // 1. Connect (with heartbeat, matching Go's amqpConfig)
+    // 1. Connect (with heartbeat and connection name, matching Go's amqpConfig)
     const connectUrl = appendHeartbeat(this.url, this.heartbeat);
-    this.amqpConn = await amqplib.connect(connectUrl);
+    this.amqpConn = await amqplib.connect(connectUrl, {
+      clientProperties: {
+        connection_name: `${this.serviceName}#${libraryVersion()}#@${hostname()}`,
+      },
+    });
     const conn = this.amqpConn;
 
     // Register connection-level close/error handlers
@@ -743,6 +749,16 @@ function applyDeadLetterOptions(
     headers["x-dead-letter-routing-key"] = options.deadLetterRoutingKey;
   }
   return headers;
+}
+
+function libraryVersion(): string {
+  try {
+    const require = createRequire(import.meta.url);
+    const pkg = require("../package.json") as { version: string };
+    return pkg.version;
+  } catch {
+    return "_unknown_";
+  }
 }
 
 function randomSuffix(): string {
