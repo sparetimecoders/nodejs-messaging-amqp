@@ -1,0 +1,735 @@
+{
+  "scenarios": [
+    {
+      "name": "event stream publisher",
+      "serviceName": "orders",
+      "setups": [
+        {
+          "pattern": "event-stream",
+          "direction": "publish"
+        }
+      ],
+      "expectedEndpoints": {
+        "amqp": [
+          {
+            "direction": "publish",
+            "pattern": "event-stream",
+            "exchangeName": "events.topic.exchange",
+            "exchangeKind": "topic"
+          }
+        ],
+        "nats": [
+          {
+            "direction": "publish",
+            "pattern": "event-stream",
+            "exchangeName": "events",
+            "exchangeKind": "topic"
+          }
+        ]
+      },
+      "broker": {
+        "amqp": {
+          "exchanges": [
+            {
+              "name": "events.topic.exchange",
+              "type": "topic",
+              "durable": true,
+              "autoDelete": false
+            }
+          ],
+          "queues": [],
+          "bindings": []
+        },
+        "nats": {
+          "streams": [
+            {
+              "name": "events",
+              "subjects": [
+                "events.\u003e"
+              ],
+              "storage": "file"
+            }
+          ],
+          "consumers": []
+        }
+      }
+    },
+    {
+      "name": "event stream consumer durable",
+      "serviceName": "orders",
+      "setups": [
+        {
+          "pattern": "event-stream",
+          "direction": "consume",
+          "routingKey": "Order.Created"
+        }
+      ],
+      "expectedEndpoints": {
+        "amqp": [
+          {
+            "direction": "consume",
+            "pattern": "event-stream",
+            "exchangeName": "events.topic.exchange",
+            "exchangeKind": "topic",
+            "queueName": "events.topic.exchange.queue.orders",
+            "routingKey": "Order.Created"
+          }
+        ],
+        "nats": [
+          {
+            "direction": "consume",
+            "pattern": "event-stream",
+            "exchangeName": "events",
+            "exchangeKind": "topic",
+            "queueName": "orders",
+            "routingKey": "Order.Created"
+          }
+        ]
+      },
+      "broker": {
+        "amqp": {
+          "exchanges": [
+            {
+              "name": "events.topic.exchange",
+              "type": "topic",
+              "durable": true,
+              "autoDelete": false
+            }
+          ],
+          "queues": [
+            {
+              "name": "events.topic.exchange.queue.orders",
+              "durable": true,
+              "autoDelete": false,
+              "arguments": {
+                "x-queue-type": "quorum",
+                "x-expires": 432000000
+              }
+            }
+          ],
+          "bindings": [
+            {
+              "source": "events.topic.exchange",
+              "destination": "events.topic.exchange.queue.orders",
+              "routingKey": "Order.Created"
+            }
+          ]
+        },
+        "nats": {
+          "streams": [
+            {
+              "name": "events",
+              "subjects": [
+                "events.\u003e"
+              ],
+              "storage": "file"
+            }
+          ],
+          "consumers": [
+            {
+              "stream": "events",
+              "durable": "orders",
+              "filterSubject": "events.Order.Created",
+              "ackPolicy": "explicit"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "event stream consumer transient",
+      "serviceName": "dashboard",
+      "setups": [
+        {
+          "pattern": "event-stream",
+          "direction": "consume",
+          "routingKey": "Order.Created",
+          "ephemeral": true
+        }
+      ],
+      "expectedEndpoints": {
+        "amqp": [
+          {
+            "direction": "consume",
+            "pattern": "event-stream",
+            "exchangeName": "events.topic.exchange",
+            "exchangeKind": "topic",
+            "queueNamePrefix": "events.topic.exchange.queue.dashboard-",
+            "routingKey": "Order.Created",
+            "ephemeral": true
+          }
+        ],
+        "nats": [
+          {
+            "direction": "consume",
+            "pattern": "event-stream",
+            "exchangeName": "events",
+            "exchangeKind": "topic",
+            "routingKey": "Order.Created",
+            "ephemeral": true
+          }
+        ]
+      },
+      "broker": {
+        "amqp": {
+          "exchanges": [
+            {
+              "name": "events.topic.exchange",
+              "type": "topic",
+              "durable": true,
+              "autoDelete": false
+            }
+          ],
+          "queues": [
+            {
+              "namePrefix": "events.topic.exchange.queue.dashboard-",
+              "durable": true,
+              "autoDelete": false,
+              "arguments": {
+                "x-queue-type": "quorum",
+                "x-expires": 1000
+              }
+            }
+          ],
+          "bindings": [
+            {
+              "source": "events.topic.exchange",
+              "destinationPrefix": "events.topic.exchange.queue.dashboard-",
+              "routingKey": "Order.Created"
+            }
+          ]
+        },
+        "nats": {
+          "streams": [
+            {
+              "name": "events",
+              "subjects": [
+                "events.\u003e"
+              ],
+              "storage": "file"
+            }
+          ],
+          "consumers": [
+            {
+              "stream": "events",
+              "filterSubject": "events.Order.Created",
+              "ackPolicy": "explicit"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "custom stream publisher and consumer",
+      "serviceName": "analytics",
+      "setups": [
+        {
+          "pattern": "custom-stream",
+          "direction": "publish",
+          "exchange": "audit"
+        },
+        {
+          "pattern": "custom-stream",
+          "direction": "consume",
+          "routingKey": "Audit.Entry",
+          "exchange": "audit"
+        }
+      ],
+      "expectedEndpoints": {
+        "amqp": [
+          {
+            "direction": "publish",
+            "pattern": "custom-stream",
+            "exchangeName": "audit.topic.exchange",
+            "exchangeKind": "topic"
+          },
+          {
+            "direction": "consume",
+            "pattern": "custom-stream",
+            "exchangeName": "audit.topic.exchange",
+            "exchangeKind": "topic",
+            "queueName": "audit.topic.exchange.queue.analytics",
+            "routingKey": "Audit.Entry"
+          }
+        ],
+        "nats": [
+          {
+            "direction": "publish",
+            "pattern": "custom-stream",
+            "exchangeName": "audit",
+            "exchangeKind": "topic"
+          },
+          {
+            "direction": "consume",
+            "pattern": "custom-stream",
+            "exchangeName": "audit",
+            "exchangeKind": "topic",
+            "queueName": "analytics",
+            "routingKey": "Audit.Entry"
+          }
+        ]
+      },
+      "broker": {
+        "amqp": {
+          "exchanges": [
+            {
+              "name": "audit.topic.exchange",
+              "type": "topic",
+              "durable": true,
+              "autoDelete": false
+            }
+          ],
+          "queues": [
+            {
+              "name": "audit.topic.exchange.queue.analytics",
+              "durable": true,
+              "autoDelete": false,
+              "arguments": {
+                "x-queue-type": "quorum",
+                "x-expires": 432000000
+              }
+            }
+          ],
+          "bindings": [
+            {
+              "source": "audit.topic.exchange",
+              "destination": "audit.topic.exchange.queue.analytics",
+              "routingKey": "Audit.Entry"
+            }
+          ]
+        },
+        "nats": {
+          "streams": [
+            {
+              "name": "audit",
+              "subjects": [
+                "audit.\u003e"
+              ],
+              "storage": "file"
+            }
+          ],
+          "consumers": [
+            {
+              "stream": "audit",
+              "durable": "analytics",
+              "filterSubject": "audit.Audit.Entry",
+              "ackPolicy": "explicit"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "service request consumer",
+      "serviceName": "email-svc",
+      "setups": [
+        {
+          "pattern": "service-request",
+          "direction": "consume",
+          "routingKey": "email.send"
+        }
+      ],
+      "expectedEndpoints": {
+        "amqp": [
+          {
+            "direction": "consume",
+            "pattern": "service-request",
+            "exchangeName": "email-svc.direct.exchange.request",
+            "exchangeKind": "direct",
+            "queueName": "email-svc.direct.exchange.request.queue",
+            "routingKey": "email.send"
+          }
+        ],
+        "nats": [
+          {
+            "direction": "consume",
+            "pattern": "service-request",
+            "exchangeName": "email-svc",
+            "exchangeKind": "direct",
+            "queueName": "email-svc",
+            "routingKey": "email.send"
+          }
+        ]
+      },
+      "broker": {
+        "amqp": {
+          "exchanges": [
+            {
+              "name": "email-svc.direct.exchange.request",
+              "type": "direct",
+              "durable": true,
+              "autoDelete": false
+            },
+            {
+              "name": "email-svc.headers.exchange.response",
+              "type": "headers",
+              "durable": true,
+              "autoDelete": false
+            }
+          ],
+          "queues": [
+            {
+              "name": "email-svc.direct.exchange.request.queue",
+              "durable": true,
+              "autoDelete": false,
+              "arguments": {
+                "x-queue-type": "quorum",
+                "x-expires": 432000000
+              }
+            }
+          ],
+          "bindings": [
+            {
+              "source": "email-svc.direct.exchange.request",
+              "destination": "email-svc.direct.exchange.request.queue",
+              "routingKey": "email.send"
+            }
+          ]
+        },
+        "nats": {
+          "streams": [],
+          "consumers": []
+        }
+      }
+    },
+    {
+      "name": "service publisher and response consumer",
+      "serviceName": "web-app",
+      "setups": [
+        {
+          "pattern": "service-request",
+          "direction": "publish",
+          "targetService": "email-svc"
+        },
+        {
+          "pattern": "service-response",
+          "direction": "consume",
+          "routingKey": "email.send",
+          "targetService": "email-svc"
+        }
+      ],
+      "expectedEndpoints": {
+        "amqp": [
+          {
+            "direction": "publish",
+            "pattern": "service-request",
+            "exchangeName": "email-svc.direct.exchange.request",
+            "exchangeKind": "direct"
+          },
+          {
+            "direction": "consume",
+            "pattern": "service-response",
+            "exchangeName": "email-svc.headers.exchange.response",
+            "exchangeKind": "headers",
+            "queueName": "email-svc.headers.exchange.response.queue.web-app",
+            "routingKey": "email.send"
+          }
+        ],
+        "nats": [
+          {
+            "direction": "publish",
+            "pattern": "service-request",
+            "exchangeName": "email-svc",
+            "exchangeKind": "direct"
+          },
+          {
+            "direction": "consume",
+            "pattern": "service-response",
+            "exchangeName": "email-svc",
+            "exchangeKind": "headers",
+            "queueName": "web-app",
+            "routingKey": "email.send"
+          }
+        ]
+      },
+      "broker": {
+        "amqp": {
+          "exchanges": [
+            {
+              "name": "email-svc.direct.exchange.request",
+              "type": "direct",
+              "durable": true,
+              "autoDelete": false
+            },
+            {
+              "name": "email-svc.headers.exchange.response",
+              "type": "headers",
+              "durable": true,
+              "autoDelete": false
+            }
+          ],
+          "queues": [
+            {
+              "name": "email-svc.headers.exchange.response.queue.web-app",
+              "durable": true,
+              "autoDelete": false,
+              "arguments": {
+                "x-queue-type": "quorum",
+                "x-expires": 432000000
+              }
+            }
+          ],
+          "bindings": [
+            {
+              "source": "email-svc.headers.exchange.response",
+              "destination": "email-svc.headers.exchange.response.queue.web-app",
+              "routingKey": "email.send"
+            }
+          ]
+        },
+        "nats": {
+          "streams": [],
+          "consumers": []
+        }
+      }
+    },
+    {
+      "name": "event stream durable and transient mixed",
+      "serviceName": "client1",
+      "setups": [
+        {
+          "pattern": "event-stream",
+          "direction": "consume",
+          "routingKey": "Order.Created",
+          "ephemeral": true
+        },
+        {
+          "pattern": "event-stream",
+          "direction": "consume",
+          "routingKey": "Order.Updated"
+        }
+      ],
+      "expectedEndpoints": {
+        "amqp": [
+          {
+            "direction": "consume",
+            "pattern": "event-stream",
+            "exchangeName": "events.topic.exchange",
+            "exchangeKind": "topic",
+            "queueNamePrefix": "events.topic.exchange.queue.client1-",
+            "routingKey": "Order.Created",
+            "ephemeral": true
+          },
+          {
+            "direction": "consume",
+            "pattern": "event-stream",
+            "exchangeName": "events.topic.exchange",
+            "exchangeKind": "topic",
+            "queueName": "events.topic.exchange.queue.client1",
+            "routingKey": "Order.Updated"
+          }
+        ],
+        "nats": [
+          {
+            "direction": "consume",
+            "pattern": "event-stream",
+            "exchangeName": "events",
+            "exchangeKind": "topic",
+            "routingKey": "Order.Created",
+            "ephemeral": true
+          },
+          {
+            "direction": "consume",
+            "pattern": "event-stream",
+            "exchangeName": "events",
+            "exchangeKind": "topic",
+            "queueName": "client1",
+            "routingKey": "Order.Updated"
+          }
+        ]
+      },
+      "broker": {
+        "amqp": {
+          "exchanges": [
+            {
+              "name": "events.topic.exchange",
+              "type": "topic",
+              "durable": true,
+              "autoDelete": false
+            }
+          ],
+          "queues": [
+            {
+              "namePrefix": "events.topic.exchange.queue.client1-",
+              "durable": true,
+              "autoDelete": false,
+              "arguments": {
+                "x-queue-type": "quorum",
+                "x-expires": 1000
+              }
+            },
+            {
+              "name": "events.topic.exchange.queue.client1",
+              "durable": true,
+              "autoDelete": false,
+              "arguments": {
+                "x-queue-type": "quorum",
+                "x-expires": 432000000
+              }
+            }
+          ],
+          "bindings": [
+            {
+              "source": "events.topic.exchange",
+              "destinationPrefix": "events.topic.exchange.queue.client1-",
+              "routingKey": "Order.Created"
+            },
+            {
+              "source": "events.topic.exchange",
+              "destination": "events.topic.exchange.queue.client1",
+              "routingKey": "Order.Updated"
+            }
+          ]
+        },
+        "nats": {
+          "streams": [
+            {
+              "name": "events",
+              "subjects": [
+                "events.\u003e"
+              ],
+              "storage": "file"
+            }
+          ],
+          "consumers": [
+            {
+              "stream": "events",
+              "filterSubject": "events.Order.Created",
+              "ackPolicy": "explicit"
+            },
+            {
+              "stream": "events",
+              "durable": "client1",
+              "filterSubject": "events.Order.Updated",
+              "ackPolicy": "explicit"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "queue publish",
+      "serviceName": "task-sender",
+      "setups": [
+        {
+          "pattern": "queue-publish",
+          "direction": "publish",
+          "destinationQueue": "task-queue"
+        }
+      ],
+      "expectedEndpoints": {
+        "amqp": [
+          {
+            "direction": "publish",
+            "pattern": "queue-publish",
+            "exchangeName": "(default)",
+            "exchangeKind": "",
+            "queueName": "task-queue"
+          }
+        ],
+        "nats": [
+          {
+            "direction": "publish",
+            "pattern": "queue-publish",
+            "exchangeName": "task-queue",
+            "exchangeKind": "",
+            "queueName": "task-queue"
+          }
+        ]
+      },
+      "broker": {
+        "amqp": {
+          "exchanges": [],
+          "queues": [],
+          "bindings": []
+        },
+        "nats": {
+          "streams": [],
+          "consumers": []
+        }
+      }
+    },
+    {
+      "name": "event stream consumer second service",
+      "serviceName": "notifications",
+      "setups": [
+        {
+          "pattern": "event-stream",
+          "direction": "consume",
+          "routingKey": "Order.Created"
+        }
+      ],
+      "expectedEndpoints": {
+        "amqp": [
+          {
+            "direction": "consume",
+            "pattern": "event-stream",
+            "exchangeName": "events.topic.exchange",
+            "exchangeKind": "topic",
+            "queueName": "events.topic.exchange.queue.notifications",
+            "routingKey": "Order.Created"
+          }
+        ],
+        "nats": [
+          {
+            "direction": "consume",
+            "pattern": "event-stream",
+            "exchangeName": "events",
+            "exchangeKind": "topic",
+            "queueName": "notifications",
+            "routingKey": "Order.Created"
+          }
+        ]
+      },
+      "broker": {
+        "amqp": {
+          "exchanges": [
+            {
+              "name": "events.topic.exchange",
+              "type": "topic",
+              "durable": true,
+              "autoDelete": false
+            }
+          ],
+          "queues": [
+            {
+              "name": "events.topic.exchange.queue.notifications",
+              "durable": true,
+              "autoDelete": false,
+              "arguments": {
+                "x-queue-type": "quorum",
+                "x-expires": 432000000
+              }
+            }
+          ],
+          "bindings": [
+            {
+              "source": "events.topic.exchange",
+              "destination": "events.topic.exchange.queue.notifications",
+              "routingKey": "Order.Created"
+            }
+          ]
+        },
+        "nats": {
+          "streams": [
+            {
+              "name": "events",
+              "subjects": [
+                "events.\u003e"
+              ],
+              "storage": "file"
+            }
+          ],
+          "consumers": [
+            {
+              "stream": "events",
+              "durable": "notifications",
+              "filterSubject": "events.Order.Created",
+              "ackPolicy": "explicit"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
