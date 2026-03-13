@@ -106,7 +106,7 @@ export class QueueConsumer {
   stop(): void {
     if (this.stopped) return;
     this.stopped = true;
-    this.logger.error(
+    this.logger.warn(
       `[gomessaging/amqp] consumer loop exited, delivery channel closed for queue "${this.queue}"`,
     );
   }

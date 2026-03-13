@@ -115,7 +115,7 @@ describe("Connection close handling", () => {
     // Should not throw
     mockConn.emit("close");
 
-    expect(silentLogger.error).toHaveBeenCalledWith(
+    expect(silentLogger.warn).toHaveBeenCalledWith(
       expect.stringContaining("connection closed unexpectedly"),
     );
   });
@@ -131,7 +131,7 @@ describe("Connection close handling", () => {
 
     mockConn.emit("error", new Error("heartbeat timeout"));
 
-    expect(silentLogger.error).toHaveBeenCalledWith(
+    expect(silentLogger.warn).toHaveBeenCalledWith(
       expect.stringContaining("heartbeat timeout"),
     );
   });
