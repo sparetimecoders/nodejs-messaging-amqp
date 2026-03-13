@@ -28,7 +28,11 @@ jobs:
 
       - name: Configure GitHub Packages auth
         if: ${{ steps.release.outputs.release_created }}
-        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > ~/.npmrc
+        run: |
+          cat > bunfig.toml << 'TOML'
+          [install.scopes]
+          "@sparetimecoders" = { token = "${{ secrets.GITHUB_TOKEN }}", url = "https://npm.pkg.github.com" }
+          TOML
 
       - name: Install dependencies
         if: ${{ steps.release.outputs.release_created }}
