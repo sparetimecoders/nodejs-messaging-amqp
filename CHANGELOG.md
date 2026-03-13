@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.3](https://github.com/sparetimecoders/nodejs-messaging-amqp/compare/messaging-amqp-v0.0.2...messaging-amqp-v0.0.3) (2026-03-13)
+
+
+### Bug Fixes
+
+* configure scoped registry auth for release workflow ([#18](https://github.com/sparetimecoders/nodejs-messaging-amqp/issues/18)) ([c757151](https://github.com/sparetimecoders/nodejs-messaging-amqp/commit/c757151eb37775101dd0124c463fd99eaee36241))
+
 ## [0.0.2](https://github.com/sparetimecoders/nodejs-messaging-amqp/compare/messaging-amqp-v0.0.1...messaging-amqp-v0.0.2) (2026-03-13)
 
 
