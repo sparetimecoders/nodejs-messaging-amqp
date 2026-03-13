@@ -10,6 +10,20 @@
 
 ### Bug Fixes
 
+* configure scoped registry auth for release workflow ([#18](https://github.com/sparetimecoders/nodejs-messaging-amqp/issues/18)) ([c757151](https://github.com/sparetimecoders/nodejs-messaging-amqp/commit/c757151eb37775101dd0124c463fd99eaee36241))
+* downgrade connection/channel close logs from error to warn ([#17](https://github.com/sparetimecoders/nodejs-messaging-amqp/issues/17)) ([c194be0](https://github.com/sparetimecoders/nodejs-messaging-amqp/commit/c194be0928f525b3481835638a2d57038b5c8a43))
+* remove synchronize trigger from review gate ([#16](https://github.com/sparetimecoders/nodejs-messaging-amqp/issues/16)) ([becbeed](https://github.com/sparetimecoders/nodejs-messaging-amqp/commit/becbeed6f398b5acfff70f58e41d9dd1ce895be4))
+
+## [0.0.2](https://github.com/sparetimecoders/nodejs-messaging-amqp/compare/messaging-amqp-v0.0.1...messaging-amqp-v0.0.2) (2026-03-13)
+
+
+### Features
+
+* set AMQP connection name with service identity ([#13](https://github.com/sparetimecoders/nodejs-messaging-amqp/issues/13)) ([5cf1da1](https://github.com/sparetimecoders/nodejs-messaging-amqp/commit/5cf1da126f86777f49d079b7aa667b430fa9e0a6))
+
+
+### Bug Fixes
+
 * downgrade connection/channel close logs from error to warn ([#17](https://github.com/sparetimecoders/nodejs-messaging-amqp/issues/17)) ([c194be0](https://github.com/sparetimecoders/nodejs-messaging-amqp/commit/c194be0928f525b3481835638a2d57038b5c8a43))
 * remove synchronize trigger from review gate ([#16](https://github.com/sparetimecoders/nodejs-messaging-amqp/issues/16)) ([becbeed](https://github.com/sparetimecoders/nodejs-messaging-amqp/commit/becbeed6f398b5acfff70f58e41d9dd1ce895be4))
 
