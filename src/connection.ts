@@ -443,13 +443,13 @@ export class Connection {
 
     // Register connection-level close/error handlers
     conn.on("error", (err: Error) => {
-      this.logger.error(`[gomessaging/amqp] connection error: ${err.message}`);
+      this.logger.warn(`[gomessaging/amqp] connection error: ${err.message}`);
       this.lastError = err;
     });
     conn.on("close", () => {
       if (this.closing) return;
       const err = this.lastError ?? new Error("AMQP connection closed");
-      this.logger.error(
+      this.logger.warn(
         `[gomessaging/amqp] connection closed unexpectedly: ${err.message}`,
       );
       for (const qc of this.activeConsumers) {
@@ -710,7 +710,7 @@ export class Connection {
 
     const emitter = ch as unknown as NodeJS.EventEmitter;
     emitter.on("error", (err: Error) => {
-      this.logger.error(
+      this.logger.warn(
         `[gomessaging/amqp] channel error: ${err.message}`,
       );
       if (consumer) {
@@ -722,7 +722,7 @@ export class Connection {
     });
     emitter.on("close", () => {
       if (this.closing) return;
-      this.logger.error("[gomessaging/amqp] channel closed unexpectedly");
+      this.logger.warn("[gomessaging/amqp] channel closed unexpectedly");
       if (consumer) {
         consumer.stop();
       }

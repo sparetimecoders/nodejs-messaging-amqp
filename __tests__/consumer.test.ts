@@ -383,7 +383,7 @@ describe("QueueConsumer", () => {
   it("logs consumer loop exit on stop()", () => {
     consumer.stop();
 
-    expect(silentLogger.error).toHaveBeenCalledWith(
+    expect(silentLogger.warn).toHaveBeenCalledWith(
       expect.stringContaining("consumer loop exited, delivery channel closed"),
     );
     expect(consumer.isStopped()).toBe(true);
@@ -393,7 +393,7 @@ describe("QueueConsumer", () => {
     consumer.stop();
     consumer.stop();
 
-    const stopCalls = silentLogger.error.mock.calls.filter(
+    const stopCalls = silentLogger.warn.mock.calls.filter(
       (call: unknown[]) => typeof call[0] === "string" && (call[0] as string).includes("consumer loop exited"),
     );
     expect(stopCalls).toHaveLength(1);
