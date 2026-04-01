@@ -380,11 +380,11 @@ describe("QueueConsumer", () => {
     expect(channel.nack).not.toHaveBeenCalled();
   });
 
-  it("logs consumer loop exit on stop()", () => {
+  it("logs consumer stop at info level", () => {
     consumer.stop();
 
-    expect(silentLogger.warn).toHaveBeenCalledWith(
-      expect.stringContaining("consumer loop exited, delivery channel closed"),
+    expect(silentLogger.info).toHaveBeenCalledWith(
+      expect.stringContaining("consumer stopped"),
     );
     expect(consumer.isStopped()).toBe(true);
   });
@@ -393,8 +393,8 @@ describe("QueueConsumer", () => {
     consumer.stop();
     consumer.stop();
 
-    const stopCalls = silentLogger.warn.mock.calls.filter(
-      (call: unknown[]) => typeof call[0] === "string" && (call[0] as string).includes("consumer loop exited"),
+    const stopCalls = silentLogger.info.mock.calls.filter(
+      (call: unknown[]) => typeof call[0] === "string" && (call[0] as string).includes("consumer stopped"),
     );
     expect(stopCalls).toHaveLength(1);
   });
@@ -402,7 +402,7 @@ describe("QueueConsumer", () => {
   describe("legacySupport", () => {
     it("enriches metadata for messages without CE headers when legacySupport is enabled", async () => {
       const legacyConsumer = new QueueConsumer(
-        "test-queue", silentLogger, undefined, undefined, undefined, undefined, undefined, true,
+        "test-queue", silentLogger, undefined, { legacySupport: true },
       );
       const handler = mock(() => Promise.resolve(undefined));
       legacyConsumer.addHandler("order.created", handler);
@@ -428,7 +428,7 @@ describe("QueueConsumer", () => {
 
     it("does not enrich metadata for messages WITH CE headers when legacySupport is enabled", async () => {
       const legacyConsumer = new QueueConsumer(
-        "test-queue", silentLogger, undefined, undefined, undefined, undefined, undefined, true,
+        "test-queue", silentLogger, undefined, { legacySupport: true },
       );
       const handler = mock(() => Promise.resolve(undefined));
       legacyConsumer.addHandler("order.created", handler);
@@ -464,7 +464,7 @@ describe("QueueConsumer", () => {
 
     it("logs debug messages for legacy message detection and enrichment", async () => {
       const legacyConsumer = new QueueConsumer(
-        "test-queue", silentLogger, undefined, undefined, undefined, undefined, undefined, true,
+        "test-queue", silentLogger, undefined, { legacySupport: true },
       );
       const handler = mock(() => Promise.resolve(undefined));
       legacyConsumer.addHandler("order.created", handler);

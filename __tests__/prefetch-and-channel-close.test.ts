@@ -329,8 +329,8 @@ describe("channel close listener", () => {
 
     consumerCh.emit("error", new Error("channel reset"));
 
-    expect(silentLogger.warn).toHaveBeenCalledWith(
-      expect.stringContaining("consumer loop exited, delivery channel closed"),
+    expect(silentLogger.error).toHaveBeenCalledWith(
+      expect.stringContaining("channel error: channel reset"),
     );
   });
 });

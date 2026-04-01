@@ -123,7 +123,7 @@ describe("AMQP notifications", () => {
       "test-queue",
       silentLogger,
       undefined,
-      onNotification,
+      { onNotification },
     );
 
     const handler = mock(() => Promise.resolve(undefined));
@@ -153,8 +153,7 @@ describe("AMQP notifications", () => {
       "test-queue",
       silentLogger,
       undefined,
-      undefined,
-      onError,
+      { onError },
     );
 
     const handlerError = new Error("handler failed");

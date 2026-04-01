@@ -165,7 +165,7 @@ describe("AMQP Consumer Metrics", () => {
 
   it("calls eventReceived and eventAck on successful handler", async () => {
     const consumer = new QueueConsumer(
-      "test-queue", silentLogger, undefined, undefined, undefined, metrics,
+      "test-queue", silentLogger, undefined, { metrics },
     );
     consumer.addHandler("order.created", mock(() => Promise.resolve(undefined)));
     await consumer.consume(channel as unknown as import("amqplib").Channel);
@@ -184,7 +184,7 @@ describe("AMQP Consumer Metrics", () => {
 
   it("calls eventNack on handler error", async () => {
     const consumer = new QueueConsumer(
-      "test-queue", silentLogger, undefined, undefined, undefined, metrics,
+      "test-queue", silentLogger, undefined, { metrics },
     );
     consumer.addHandler("order.created", mock(() => Promise.reject(new Error("fail"))));
     await consumer.consume(channel as unknown as import("amqplib").Channel);
@@ -203,7 +203,7 @@ describe("AMQP Consumer Metrics", () => {
 
   it("calls eventWithoutHandler when no handler matches", async () => {
     const consumer = new QueueConsumer(
-      "test-queue", silentLogger, undefined, undefined, undefined, metrics,
+      "test-queue", silentLogger, undefined, { metrics },
     );
     consumer.addHandler("order.created", mock());
     await consumer.consume(channel as unknown as import("amqplib").Channel);
@@ -220,7 +220,7 @@ describe("AMQP Consumer Metrics", () => {
 
   it("calls eventNotParsable on invalid JSON", async () => {
     const consumer = new QueueConsumer(
-      "test-queue", silentLogger, undefined, undefined, undefined, metrics,
+      "test-queue", silentLogger, undefined, { metrics },
     );
     consumer.addHandler("order.created", mock());
     await consumer.consume(channel as unknown as import("amqplib").Channel);
@@ -238,7 +238,7 @@ describe("AMQP Consumer Metrics", () => {
   it("applies routingKeyMapper before passing to metrics", async () => {
     const mapper = (key: string) => key.replace(/\.\d+/, ".ID");
     const consumer = new QueueConsumer(
-      "test-queue", silentLogger, undefined, undefined, undefined, metrics, mapper,
+      "test-queue", silentLogger, undefined, { metrics, routingKeyMapper: mapper },
     );
     consumer.addHandler("order.#", mock(() => Promise.resolve(undefined)));
     await consumer.consume(channel as unknown as import("amqplib").Channel);
@@ -255,10 +255,10 @@ describe("AMQP Consumer Metrics", () => {
     );
   });
 
-  it("replaces empty mapped routing key with 'unknown'", async () => {
+  it("replaces empty mapped routing key with unknown", async () => {
     const mapper = () => "";
     const consumer = new QueueConsumer(
-      "test-queue", silentLogger, undefined, undefined, undefined, metrics, mapper,
+      "test-queue", silentLogger, undefined, { metrics, routingKeyMapper: mapper },
     );
     consumer.addHandler("order.created", mock(() => Promise.resolve(undefined)));
     await consumer.consume(channel as unknown as import("amqplib").Channel);
