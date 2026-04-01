@@ -22,4 +22,5 @@ export type { ConnectionOptions, ConsumerOptions } from "./connection.js";
 export { Publisher, WithoutPublisherConfirms } from "./publisher.js";
 export type { PublisherOptions } from "./publisher.js";
 export { QueueConsumer } from "./consumer.js";
+export type { QueueConsumerOptions } from "./consumer.js";
 export { injectToHeaders, extractToContext } from "./tracing.js";

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 sparetimecoders
 
 import * as amqplib from "amqplib";
+import { randomUUID } from "node:crypto";
 import { hostname } from "node:os";
 import { createRequire } from "node:module";
 import type { TextMapPropagator } from "@opentelemetry/api";
@@ -36,7 +37,7 @@ import {
 } from "@sparetimecoders/messaging";
 import { v4 as uuidv4 } from "uuid";
 import { Publisher } from "./publisher.js";
-import { QueueConsumer } from "./consumer.js";
+import { QueueConsumer, type QueueConsumerOptions } from "./consumer.js";
 
 type Logger = Pick<Console, "info" | "warn" | "error" | "debug">;
 
@@ -232,10 +233,10 @@ export class Connection {
       routingKey,
       ephemeral: options?.ephemeral,
     });
+    // Ephemeral queues use classic type (quorum queues do not support x-expires)
     const queueHeaders = ephemeral
-      ? { "x-queue-type": "quorum", "x-expires": ephemeralQueueTTLMs }
+      ? { "x-expires": ephemeralQueueTTLMs }
       : defaultQueueHeaders();
-    applyDeadLetterOptions(queueHeaders, options);
     this.registrations.push({
       kind: "consumer",
       exchangeName,
@@ -243,7 +244,7 @@ export class Connection {
       queueName,
       routingKey,
       handler: handler as EventHandler<unknown>,
-      queueHeaders,
+      queueHeaders: applyDeadLetterOptions(queueHeaders, options),
     });
   }
 
@@ -291,10 +292,10 @@ export class Connection {
       routingKey,
       ephemeral: options?.ephemeral,
     });
+    // Ephemeral queues use classic type (quorum queues do not support x-expires)
     const queueHeaders = ephemeral
-      ? { "x-queue-type": "quorum", "x-expires": ephemeralQueueTTLMs }
+      ? { "x-expires": ephemeralQueueTTLMs }
       : defaultQueueHeaders();
-    applyDeadLetterOptions(queueHeaders, options);
     this.registrations.push({
       kind: "consumer",
       exchangeName,
@@ -302,7 +303,7 @@ export class Connection {
       queueName,
       routingKey,
       handler: handler as EventHandler<unknown>,
-      queueHeaders,
+      queueHeaders: applyDeadLetterOptions(queueHeaders, options),
     });
   }
 
@@ -375,8 +376,7 @@ export class Connection {
       queueName: serviceResponseQueueName(targetService, this.serviceName),
       routingKey,
     });
-    const queueHeaders = defaultQueueHeaders();
-    applyDeadLetterOptions(queueHeaders, options);
+    const queueHeaders = applyDeadLetterOptions(defaultQueueHeaders(), options);
     this.registrations.push({
       kind: "consumer",
       exchangeName: serviceResponseExchangeName(targetService),
@@ -428,11 +428,16 @@ export class Connection {
    * Mirrors Go Connection.Start().
    */
   async start(): Promise<void> {
+    if (this.amqpConn) {
+      throw new Error("connection already started - call close() before start()");
+    }
+
+    const safeUrl = this.url.replace(/:\/\/[^@]+@/, "://<redacted>@");
     this.logger.info(
-      `[gomessaging/amqp] Starting connection to ${this.url} for service "${this.serviceName}"`,
+      `[gomessaging/amqp] Starting connection to ${safeUrl} for service "${this.serviceName}"`,
     );
 
-    // 1. Connect (with heartbeat and connection name, matching Go's amqpConfig)
+    // 1. Connect (with heartbeat and connection name, matching Go amqpConfig)
     const connectUrl = appendHeartbeat(this.url, this.heartbeat);
     this.amqpConn = await amqplib.connect(connectUrl, {
       clientProperties: {
@@ -468,90 +473,11 @@ export class Connection {
 
     for (const reg of this.registrations) {
       if (reg.kind === "publisher") {
-        // Declare exchange (skip for default exchange used by queue publishers)
-        if (reg.exchangeName !== "") {
-          await setupChannel.assertExchange(reg.exchangeName, reg.exchangeKind, {
-            durable: true,
-          });
-        }
-        const pubChannel = reg.publisher.publisherConfirms
-          ? await conn.createConfirmChannel()
-          : await conn.createChannel();
-        this.publisherChannels.push(pubChannel);
-        reg.publisher.setup(
-          pubChannel,
-          reg.exchangeName,
-          this.serviceName,
-          this.propagator,
-          this.metrics,
-          this.routingKeyMapper,
-          reg.defaultHeaders,
-        );
-        this.logger.info(
-          `[gomessaging/amqp] configured publisher exchange="${reg.exchangeName}" confirms=${reg.publisher.publisherConfirms}`,
-        );
+        await this.setupPublisher(conn, setupChannel, reg);
       } else if (reg.kind === "consumer") {
-        // Declare exchange
-        await setupChannel.assertExchange(reg.exchangeName, reg.exchangeKind, {
-          durable: true,
-        });
-        // Declare queue
-        await setupChannel.assertQueue(reg.queueName, {
-          durable: true,
-          arguments: reg.queueHeaders,
-        });
-        // Bind queue
-        await setupChannel.bindQueue(
-          reg.queueName,
-          reg.exchangeName,
-          reg.routingKey,
-          reg.bindingHeaders,
-        );
-        this.logger.info(
-          `[gomessaging/amqp] bound queue="${reg.queueName}" exchange="${reg.exchangeName}" routingKey="${reg.routingKey}"`,
-        );
-
-        // Group handlers by queue
-        let qc = queueConsumers.get(reg.queueName);
-        if (!qc) {
-          qc = new QueueConsumer(reg.queueName, this.logger, this.propagator, this.onNotification, this.onError, this.metrics, this.routingKeyMapper, this.legacySupport);
-          queueConsumers.set(reg.queueName, qc);
-        }
-        qc.addHandler(reg.routingKey, reg.handler);
+        await this.setupConsumer(setupChannel, reg, queueConsumers);
       } else if (reg.kind === "request-consumer") {
-        // Declare request exchange (direct)
-        await setupChannel.assertExchange(reg.exchangeName, "direct", {
-          durable: true,
-        });
-        // Declare response exchange (headers)
-        await setupChannel.assertExchange(reg.responseExchangeName, "headers", {
-          durable: true,
-        });
-        // Declare request queue
-        await setupChannel.assertQueue(reg.queueName, {
-          durable: true,
-          arguments: reg.queueHeaders,
-        });
-        // Bind queue
-        await setupChannel.bindQueue(
-          reg.queueName,
-          reg.exchangeName,
-          reg.routingKey,
-        );
-        this.logger.info(
-          `[gomessaging/amqp] bound request queue="${reg.queueName}" exchange="${reg.exchangeName}" routingKey="${reg.routingKey}"`,
-        );
-
-        // Register as a regular consumer handler
-        let qc = queueConsumers.get(reg.queueName);
-        if (!qc) {
-          qc = new QueueConsumer(reg.queueName, this.logger, this.propagator, this.onNotification, this.onError, this.metrics, this.routingKeyMapper, this.legacySupport);
-          queueConsumers.set(reg.queueName, qc);
-        }
-        qc.addHandler(
-          reg.routingKey,
-          reg.handler as unknown as EventHandler<unknown>,
-        );
+        await this.setupRequestConsumer(setupChannel, reg, queueConsumers);
       }
     }
 
@@ -561,7 +487,7 @@ export class Connection {
     // Create response channel for PublishServiceResponse
     this.responseChannel = await conn.createConfirmChannel();
 
-    // Start consumers — each queue gets its own channel
+    // Start consumers -- each queue gets its own channel
     for (const qc of queueConsumers.values()) {
       const ch = await conn.createChannel();
       this.registerChannelCloseListener(ch, qc);
@@ -640,8 +566,8 @@ export class Connection {
   }
 
   /**
-   * Publish a service response message to the target service's response exchange.
-   * Mirrors Go's Connection.PublishServiceResponse().
+   * Publish a service response message to the target service response exchange.
+   * Mirrors Go Connection.PublishServiceResponse().
    */
   async publishServiceResponse(
     targetService: string,
@@ -650,7 +576,7 @@ export class Connection {
   ): Promise<void> {
     if (!this.responseChannel) {
       throw new Error(
-        "connection not started — call start() first",
+        "connection not started -- call start() first",
       );
     }
 
@@ -671,7 +597,14 @@ export class Connection {
     setDefault(AMQPCEHeaderKey(CEAttrSource), this.serviceName);
     setDefault(AMQPCEHeaderKey(CEAttrDataContentType), "application/json");
     setDefault(AMQPCEHeaderKey(CEAttrTime), new Date().toISOString());
-    h[AMQPCEHeaderKey(CEAttrID)] = uuidv4();
+
+    // Use setDefault pattern -- only generate UUID if not already set
+    const amqpIDKey = AMQPCEHeaderKey(CEAttrID);
+    const messageID =
+      typeof h[amqpIDKey] === "string" && h[amqpIDKey] !== ""
+        ? (h[amqpIDKey] as string)
+        : uuidv4();
+    h[amqpIDKey] = messageID;
 
     const publishOptions: amqplib.Options.Publish = {
       headers: h,
@@ -700,9 +633,126 @@ export class Connection {
     });
   }
 
+  /** Declare exchange and set up a publisher channel. */
+  private async setupPublisher(
+    conn: amqplib.ChannelModel,
+    setupChannel: amqplib.Channel,
+    reg: PublisherRegistration,
+  ): Promise<void> {
+    // Declare exchange (skip for default exchange used by queue publishers)
+    if (reg.exchangeName !== "") {
+      await setupChannel.assertExchange(reg.exchangeName, reg.exchangeKind, {
+        durable: true,
+      });
+    }
+    const pubChannel = reg.publisher.publisherConfirms
+      ? await conn.createConfirmChannel()
+      : await conn.createChannel();
+    this.publisherChannels.push(pubChannel);
+    reg.publisher.setup(
+      pubChannel,
+      reg.exchangeName,
+      this.serviceName,
+      this.propagator,
+      this.metrics,
+      this.routingKeyMapper,
+      reg.defaultHeaders,
+    );
+    this.logger.info(
+      `[gomessaging/amqp] configured publisher exchange="${reg.exchangeName}" confirms=${reg.publisher.publisherConfirms}`,
+    );
+  }
+
+  /** Declare exchange, queue, binding, and register consumer handler. */
+  private async setupConsumer(
+    setupChannel: amqplib.Channel,
+    reg: ConsumerRegistration,
+    queueConsumers: Map<string, QueueConsumer>,
+  ): Promise<void> {
+    // Declare exchange
+    await setupChannel.assertExchange(reg.exchangeName, reg.exchangeKind, {
+      durable: true,
+    });
+    // Declare queue
+    await setupChannel.assertQueue(reg.queueName, {
+      durable: true,
+      arguments: reg.queueHeaders,
+    });
+    // Bind queue
+    await setupChannel.bindQueue(
+      reg.queueName,
+      reg.exchangeName,
+      reg.routingKey,
+      reg.bindingHeaders,
+    );
+    this.logger.info(
+      `[gomessaging/amqp] bound queue="${reg.queueName}" exchange="${reg.exchangeName}" routingKey="${reg.routingKey}"`,
+    );
+
+    // Group handlers by queue
+    let qc = queueConsumers.get(reg.queueName);
+    if (!qc) {
+      qc = new QueueConsumer(reg.queueName, this.logger, this.propagator, {
+        onNotification: this.onNotification,
+        onError: this.onError,
+        metrics: this.metrics,
+        routingKeyMapper: this.routingKeyMapper,
+        legacySupport: this.legacySupport,
+      });
+      queueConsumers.set(reg.queueName, qc);
+    }
+    qc.addHandler(reg.routingKey, reg.handler);
+  }
+
+  /** Declare request/response exchanges, queue, binding, and register handler. */
+  private async setupRequestConsumer(
+    setupChannel: amqplib.Channel,
+    reg: RequestConsumerRegistration,
+    queueConsumers: Map<string, QueueConsumer>,
+  ): Promise<void> {
+    // Declare request exchange (direct)
+    await setupChannel.assertExchange(reg.exchangeName, "direct", {
+      durable: true,
+    });
+    // Declare response exchange (headers)
+    await setupChannel.assertExchange(reg.responseExchangeName, "headers", {
+      durable: true,
+    });
+    // Declare request queue
+    await setupChannel.assertQueue(reg.queueName, {
+      durable: true,
+      arguments: reg.queueHeaders,
+    });
+    // Bind queue
+    await setupChannel.bindQueue(
+      reg.queueName,
+      reg.exchangeName,
+      reg.routingKey,
+    );
+    this.logger.info(
+      `[gomessaging/amqp] bound request queue="${reg.queueName}" exchange="${reg.exchangeName}" routingKey="${reg.routingKey}"`,
+    );
+
+    // Register as a regular consumer handler
+    let qc = queueConsumers.get(reg.queueName);
+    if (!qc) {
+      qc = new QueueConsumer(reg.queueName, this.logger, this.propagator, {
+        onNotification: this.onNotification,
+        onError: this.onError,
+        metrics: this.metrics,
+        routingKeyMapper: this.routingKeyMapper,
+        legacySupport: this.legacySupport,
+      });
+      queueConsumers.set(reg.queueName, qc);
+    }
+    qc.addHandler(
+      reg.routingKey,
+      reg.handler as unknown as EventHandler<unknown>,
+    );
+  }
+
   /**
    * Register close/error listeners on a channel that forward to the onClose callback.
-   * Mirrors Go's amqpConn.channel() which calls NotifyClose on every channel.
    */
   private registerChannelCloseListener(ch: amqplib.Channel, consumer?: QueueConsumer): void {
     // amqplib channels are EventEmitters; guard for test mocks that may not be
@@ -742,13 +792,14 @@ function applyDeadLetterOptions(
   headers: Record<string, unknown>,
   options?: ConsumerOptions,
 ): Record<string, unknown> {
+  const result = { ...headers };
   if (options?.deadLetterExchange) {
-    headers["x-dead-letter-exchange"] = options.deadLetterExchange;
+    result["x-dead-letter-exchange"] = options.deadLetterExchange;
   }
   if (options?.deadLetterRoutingKey !== undefined) {
-    headers["x-dead-letter-routing-key"] = options.deadLetterRoutingKey;
+    result["x-dead-letter-routing-key"] = options.deadLetterRoutingKey;
   }
-  return headers;
+  return result;
 }
 
 function libraryVersion(): string {
@@ -756,13 +807,20 @@ function libraryVersion(): string {
     const require = createRequire(import.meta.url);
     const pkg = require("../package.json") as { version: string };
     return pkg.version;
-  } catch {
-    return "_unknown_";
+  } catch (err: unknown) {
+    if (
+      err instanceof Error &&
+      "code" in err &&
+      (err as NodeJS.ErrnoException).code === "MODULE_NOT_FOUND"
+    ) {
+      return "_unknown_";
+    }
+    throw err;
   }
 }
 
 function randomSuffix(): string {
-  return Math.random().toString(36).slice(2, 10);
+  return randomUUID().replace(/-/g, "").slice(0, 8);
 }
 
 /**
@@ -770,7 +828,15 @@ function randomSuffix(): string {
  * If the URL already contains a heartbeat parameter, it is left as-is.
  */
 function appendHeartbeat(url: string, heartbeat: number): string {
-  if (url.includes("heartbeat=")) return url;
-  const separator = url.includes("?") ? "&" : "?";
-  return `${url}${separator}heartbeat=${heartbeat}`;
+  try {
+    const parsed = new URL(url);
+    if (parsed.searchParams.has("heartbeat")) return url;
+    parsed.searchParams.set("heartbeat", String(heartbeat));
+    return parsed.toString();
+  } catch {
+    // Fallback for non-standard AMQP URLs that URL cannot parse
+    if (url.includes("heartbeat=")) return url;
+    const separator = url.includes("?") ? "&" : "?";
+    return `${url}${separator}heartbeat=${heartbeat}`;
+  }
 }

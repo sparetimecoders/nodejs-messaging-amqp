@@ -31,13 +31,22 @@ type Logger = Pick<Console, "info" | "warn" | "error" | "debug">;
 /** RoutingKeyHandlers maps routing keys to typed event handlers. */
 type RoutingKeyHandlers = Map<string, EventHandler<unknown>>;
 
+/** Options for QueueConsumer params beyond the required queue/logger/propagator. */
+export interface QueueConsumerOptions {
+  onNotification?: NotificationHandler;
+  onError?: ErrorNotificationHandler;
+  metrics?: MetricsRecorder;
+  routingKeyMapper?: RoutingKeyMapper;
+  legacySupport?: boolean;
+}
+
 /**
- * QueueConsumer manages a single AMQP queue with routing-key → handler dispatch.
+ * QueueConsumer manages a single AMQP queue with routing-key -> handler dispatch.
  * Mirrors golang/amqp/consumer.go queueConsumer.
  */
 export class QueueConsumer {
   readonly queue: string;
-  readonly handlers: RoutingKeyHandlers = new Map();
+  private readonly handlers: RoutingKeyHandlers = new Map();
   private logger: Logger;
   private propagator?: TextMapPropagator;
   private consumerTag = "";
@@ -52,20 +61,21 @@ export class QueueConsumer {
     queue: string,
     logger: Logger,
     propagator?: TextMapPropagator,
-    onNotification?: NotificationHandler,
-    onError?: ErrorNotificationHandler,
-    metrics?: MetricsRecorder,
-    routingKeyMapper?: RoutingKeyMapper,
-    legacySupport = false,
+    options?: QueueConsumerOptions,
   ) {
     this.queue = queue;
     this.logger = logger;
     this.propagator = propagator;
-    this.onNotification = onNotification;
-    this.onError = onError;
-    this.metrics = metrics;
-    this.routingKeyMapper = routingKeyMapper;
-    this.legacySupport = legacySupport;
+    this.onNotification = options?.onNotification;
+    this.onError = options?.onError;
+    this.metrics = options?.metrics;
+    this.routingKeyMapper = options?.routingKeyMapper;
+    this.legacySupport = options?.legacySupport ?? false;
+  }
+
+  /** Returns a read-only view of the registered handlers. */
+  getHandlers(): ReadonlyMap<string, EventHandler<unknown>> {
+    return this.handlers;
   }
 
   addHandler(routingKey: string, handler: EventHandler<unknown>): void {
@@ -106,8 +116,8 @@ export class QueueConsumer {
   stop(): void {
     if (this.stopped) return;
     this.stopped = true;
-    this.logger.warn(
-      `[gomessaging/amqp] consumer loop exited, delivery channel closed for queue "${this.queue}"`,
+    this.logger.info(
+      `[gomessaging/amqp] consumer stopped for queue "${this.queue}"`,
     );
   }
 
@@ -215,6 +225,9 @@ export class QueueConsumer {
         } else {
           channel.nack(msg, false, true);
         }
+      })
+      .catch((err: unknown) => {
+        this.logger.error(`[gomessaging/amqp] ack/nack failed: ${String(err)}`);
       });
   }
 }
