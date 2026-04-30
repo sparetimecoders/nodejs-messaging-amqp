@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.3](https://github.com/sparetimecoders/nodejs-messaging-amqp/compare/messaging-amqp-v0.0.2...messaging-amqp-v0.0.3) (2026-04-30)
+
+
+### Bug Fixes
+
+* address code review findings ([#21](https://github.com/sparetimecoders/nodejs-messaging-amqp/issues/21)) ([34d7ccf](https://github.com/sparetimecoders/nodejs-messaging-amqp/commit/34d7ccfbf223ba5917b8fd676e2cd37e0d22221c))
+
 ## [0.0.2](https://github.com/sparetimecoders/nodejs-messaging-amqp/compare/messaging-amqp-v0.0.1...messaging-amqp-v0.0.2) (2026-03-13)
 
 
