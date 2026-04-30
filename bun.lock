@@ -5,20 +5,20 @@
     "": {
       "name": "@sparetimecoders/messaging-amqp",
       "dependencies": {
-        "@opentelemetry/api": "^1.9.0",
-        "@sparetimecoders/messaging": "^0.0.1",
-        "amqplib": "^0.10.5",
-        "uuid": "^11.0.0",
+        "@opentelemetry/api": "1.9.1",
+        "@sparetimecoders/messaging": "0.0.1",
+        "amqplib": "0.10.9",
+        "uuid": "11.1.1",
       },
       "devDependencies": {
-        "@types/amqplib": "^0.10.6",
+        "@types/amqplib": "0.10.8",
         "@types/bun": "latest",
-        "typescript": "^5.7.3",
+        "typescript": "5.9.3",
       },
     },
   },
   "packages": {
-    "@opentelemetry/api": ["@opentelemetry/api@1.9.0", "", {}, "sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg=="],
+    "@opentelemetry/api": ["@opentelemetry/api@1.9.1", "", {}, "sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q=="],
 
     "@sparetimecoders/messaging": ["@sparetimecoders/messaging@0.0.1", "https://npm.pkg.github.com/download/@sparetimecoders/messaging/0.0.1/2136d37cdea4e04cbf11f473d4ee6dd944757a82", {}, "sha512-okkNkpc3RPqwWi/oZn0Xq7uwLA5cJMbm610UulEyQF3kr6+5QmIOkC1VJRevUp9N2saPMS5+nLMgIPMvvhWfGQ=="],
 
@@ -44,6 +44,6 @@
 
     "url-parse": ["url-parse@1.5.10", "", { "dependencies": { "querystringify": "^2.1.1", "requires-port": "^1.0.0" } }, "sha512-WypcfiRhfeUP9vvF0j6rw0J3hrWrw6iZv3+22h6iRMJ/8z1Tj6XfLP4DsUix5MhMPnXpiHDoKyoZ/bdCkwBCiQ=="],
 
-    "uuid": ["uuid@11.1.0", "", { "bin": { "uuid": "dist/esm/bin/uuid" } }, "sha512-0/A9rDy9P7cJ+8w1c9WD9V//9Wj15Ce2MPz8Ri6032usz+NfePxx5AcN3bN+r6ZL6jEo066/yNYB3tn4pQEx+A=="],
+    "uuid": ["uuid@11.1.1", "", { "bin": { "uuid": "dist/esm/bin/uuid" } }, "sha512-vIYxrBCC/N/K+Js3qSN88go7kIfNPssr/hHCesKCQNAjmgvYS2oqr69kIufEG+O4+PfezOH4EbIeHCfFov8ZgQ=="],
   }
 }
