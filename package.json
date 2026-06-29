@@ -1,6 +1,6 @@
 {
   "name": "@sparetimecoders/messaging-amqp",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "AMQP transport for sparetimecoders messaging libraries",
   "license": "MIT",
   "repository": {
